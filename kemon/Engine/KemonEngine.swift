@@ -10,6 +10,7 @@
 
 import SwiftUI
 import Observation
+import AVFoundation
 
 @MainActor
 @Observable
@@ -17,7 +18,9 @@ final class KemonEngine {
 
     // Live state observed by the UI.
     private(set) var currentReading: EmotionReading = .empty
+    private(set) var currentVoice: VoiceReading = .empty
     private(set) var score = ScoringMatrix()
+    private(set) var voiceScore = VoiceScoringMatrix()
     private(set) var isPerforming = false
     private(set) var currentLyricIndex: Int?
     private(set) var elapsed: TimeInterval = 0
@@ -30,7 +33,28 @@ final class KemonEngine {
     #if canImport(ARKit)
     let arFace: ARFaceController?
     #endif
-    let audio = AudioController()
+
+    /// Captures + analyses the singer's voice. Owns the shared AVAudioEngine
+    /// that LocalAudioEngine attaches its backing-track player to.
+    let mic = MicController()
+
+    /// Active playback (local file engine or MusicKit), chosen per song.
+    private(set) var playback: PlaybackSource
+
+    /// Combined voice + emotion score for the live overall readout.
+    var overallScore: Int { voiceScore.overall(emotionScore: score.normalizedScore) }
+
+    /// Whether the active source can dim the lead vocal. Observed by the UI;
+    /// resolved after the (async) playback prepare completes.
+    private(set) var canSuppressVocals = false
+
+    /// UI-bound vocal-suppression toggle. Applies to the active source.
+    var vocalSuppressed = false {
+        didSet {
+            guard oldValue != vocalSuppressed else { return }
+            setVocalSuppress(vocalSuppressed)
+        }
+    }
 
     /// Active analysis pipeline (A/B switch). Observed by the UI.
     private(set) var mode: AnalysisMode = .model
@@ -71,6 +95,10 @@ final class KemonEngine {
         arFace = ARFaceController.isSupported ? ARFaceController() : nil
         #endif
 
+        // Local playback attaches its player node to the mic's shared engine so
+        // echo cancellation has the backing track as its reference signal.
+        playback = LocalAudioEngine(engine: mic.engine)
+
         // self is fully initialised past this point — safe to capture.
         camera.onReading = { [weak self] reading in
             self?.handle(reading)
@@ -80,6 +108,10 @@ final class KemonEngine {
             self?.handle(reading)
         }
         #endif
+        mic.onReading = { [weak self] reading in
+            self?.handle(voice: reading)
+        }
+        observeInterruptions()
     }
 
     /// The source for the current mode (falls back to the camera).
@@ -104,22 +136,33 @@ final class KemonEngine {
 
     // MARK: - Session control
 
-    /// Begin a performance for `song`: camera warms up immediately; audio +
-    /// scoring start together.
+    /// Begin a performance for `song`: camera + mic warm up, then audio and
+    /// scoring start together. Async because MusicKit prepares over the network.
     func start(song: Song) {
         self.song = song
         lyrics = LyricsLoader.lyrics(for: song)
         smoothed = [:]
         score.reset()
+        voiceScore.reset()
+        voiceScore.setLyricLines(lyrics)
+        currentVoice = .empty
         finalSummary = nil
         currentLyricIndex = nil
         elapsed = 0
+        canSuppressVocals = false
+        vocalSuppressed = false
 
+        playback = makePlaybackSource(for: song)
         activeSource.start()
-        audio.load(fileName: song.audioFileName, fileExtension: song.audioFileExtension)
-        audio.play()
-        isPerforming = true
-        startClock()
+
+        Task { @MainActor in
+            await playback.prepare(for: song)
+            canSuppressVocals = playback.supportsVocalSuppression
+            mic.start()          // mic (and its engine) up first so AEC converges
+            playback.play()
+            isPerforming = true
+            startClock()
+        }
     }
 
     func stop() {
@@ -128,6 +171,24 @@ final class KemonEngine {
         #if canImport(ARKit)
         arFace?.stop()
         #endif
+        mic.stop()
+    }
+
+    /// Toggles vocal suppression on the backing track (local sources only).
+    func setVocalSuppress(_ enabled: Bool) {
+        guard playback.supportsVocalSuppression else { return }
+        playback.vocalSuppressionEnabled = enabled
+    }
+
+    /// Chooses the playback source for the song. Apple Music songs play through
+    /// MusicKit; everything else plays locally (and supports suppression).
+    private func makePlaybackSource(for song: Song) -> PlaybackSource {
+        #if canImport(MusicKit)
+        if song.source == .appleMusic {
+            return MusicKitPlaybackSource()
+        }
+        #endif
+        return LocalAudioEngine(engine: mic.engine)
     }
 
     // MARK: - Clock (driven off the audio position)
@@ -148,11 +209,11 @@ final class KemonEngine {
 
     private func tick() {
         guard isPerforming else { return }
-        elapsed = audio.currentTime
+        elapsed = playback.currentTime
         currentLyricIndex = lyricIndex(at: elapsed, in: lyrics)
 
         // End the performance when the track completes.
-        if audio.didFinish {
+        if playback.didFinish {
             finishPerformance()
         }
     }
@@ -161,8 +222,45 @@ final class KemonEngine {
         guard isPerforming else { return }
         isPerforming = false
         stopClock()
-        audio.stop()
-        if let song { finalSummary = score.summary(for: song) }
+        playback.stop()
+        mic.stop()
+        voiceScore.finalize()
+        if let song {
+            finalSummary = voiceScore.summary(for: song, emotionScore: score.normalizedScore)
+        }
+    }
+
+    // MARK: - Audio-session interruptions
+
+    private func observeInterruptions() {
+        NotificationCenter.default.addObserver(
+            forName: AVAudioSession.interruptionNotification,
+            object: nil, queue: .main
+        ) { [weak self] note in
+            MainActor.assumeIsolated { self?.handleInterruption(note) }
+        }
+    }
+
+    private func handleInterruption(_ note: Notification) {
+        guard isPerforming,
+              let raw = note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
+              let type = AVAudioSession.InterruptionType(rawValue: raw) else { return }
+        switch type {
+        case .began:
+            stopClock()
+            playback.pause()
+            mic.pause()
+        case .ended:
+            let options = (note.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt)
+                .map(AVAudioSession.InterruptionOptions.init(rawValue:)) ?? []
+            if options.contains(.shouldResume) {
+                mic.resume()
+                playback.resume()
+                startClock()
+            }
+        @unknown default:
+            break
+        }
     }
 
     // MARK: - Frame ingestion
@@ -241,6 +339,16 @@ final class KemonEngine {
         currentReading = adjusted
         guard isPerforming, let song else { return }
         score.ingest(adjusted, genre: song.genre)
+    }
+
+    /// Ingests one microphone reading: stamps it with the audio clock, exposes
+    /// it for the live pitch/energy UI, and feeds it to the voice score.
+    private func handle(voice reading: VoiceReading) {
+        var stamped = reading
+        stamped.mediaTime = elapsed
+        currentVoice = stamped
+        guard isPerforming else { return }
+        voiceScore.ingest(stamped)
     }
 
     // MARK: - Lyric lookup

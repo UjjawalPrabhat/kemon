@@ -46,6 +46,14 @@ struct LyricLine: Codable, Hashable, Sendable {
     var text: String
 }
 
+/// Where a song's audio comes from — selects the PlaybackSource. Bundled and
+/// imported are local PCM (suppressible); Apple Music is a DRM stream (not).
+enum SongSourceKind: String, Codable, CaseIterable, Sendable {
+    case bundled      // audioFileName in the app bundle
+    case imported     // a user file, referenced by a security-scoped bookmark
+    case appleMusic   // a MusicKit catalog/library item
+}
+
 @Model
 final class Song {
     var title: String
@@ -63,9 +71,38 @@ final class Song {
     /// SwiftData persists arrays of Codable structs directly.
     var lyrics: [LyricLine]
 
+    /// Audio source, stored raw for clean indexing. Has a default so adding it
+    /// to the model is an automatic lightweight SwiftData migration (existing
+    /// rows become `.bundled`) rather than a store-open failure.
+    private var sourceKindRaw: String = SongSourceKind.bundled.rawValue
+
+    /// Security-scoped bookmark for an imported file (nil for bundled/Apple Music).
+    var importedBookmark: Data?
+
+    /// MusicKit item id for an Apple Music song (nil otherwise).
+    var appleMusicID: String?
+
     var genre: SongGenre {
         get { SongGenre(rawValue: genreRaw) ?? .chill }
         set { genreRaw = newValue.rawValue }
+    }
+
+    var source: SongSourceKind {
+        get { SongSourceKind(rawValue: sourceKindRaw) ?? .bundled }
+        set { sourceKindRaw = newValue.rawValue }
+    }
+
+    /// Resolves the imported file from its bookmark, starting security-scoped
+    /// access. Callers are responsible for balancing `stopAccessingSecurityScopedResource`.
+    var importedURL: URL? {
+        guard let importedBookmark else { return nil }
+        var stale = false
+        guard let url = try? URL(resolvingBookmarkData: importedBookmark,
+                                 options: [],
+                                 relativeTo: nil,
+                                 bookmarkDataIsStale: &stale) else { return nil }
+        _ = url.startAccessingSecurityScopedResource()
+        return url
     }
 
     init(
@@ -74,7 +111,10 @@ final class Song {
         audioFileName: String,
         audioFileExtension: String = "m4a",
         genre: SongGenre,
-        lyrics: [LyricLine]
+        lyrics: [LyricLine],
+        source: SongSourceKind = .bundled,
+        importedBookmark: Data? = nil,
+        appleMusicID: String? = nil
     ) {
         self.title = title
         self.artist = artist
@@ -82,5 +122,8 @@ final class Song {
         self.audioFileExtension = audioFileExtension
         self.genreRaw = genre.rawValue
         self.lyrics = lyrics.sorted { $0.time < $1.time }
+        self.sourceKindRaw = source.rawValue
+        self.importedBookmark = importedBookmark
+        self.appleMusicID = appleMusicID
     }
 }

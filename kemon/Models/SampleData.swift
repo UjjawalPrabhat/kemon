@@ -19,9 +19,11 @@ enum SampleData {
         let existing = (try? context.fetch(FetchDescriptor<Song>())) ?? []
         let desired = songs
         let desiredKeys = Set(desired.map(\.audioFileName))
-        let existingKeys = Set(existing.map(\.audioFileName))
+        let existingKeys = Set(existing.filter { $0.source == .bundled }.map(\.audioFileName))
 
-        for song in existing where !desiredKeys.contains(song.audioFileName) {
+        // Only reconcile the BUNDLED catalog — never touch songs the user added
+        // (imported files or Apple Music tracks).
+        for song in existing where song.source == .bundled && !desiredKeys.contains(song.audioFileName) {
             context.delete(song)
         }
         for song in desired where !existingKeys.contains(song.audioFileName) {
