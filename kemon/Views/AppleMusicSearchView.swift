@@ -27,6 +27,9 @@ struct AppleMusicSearchView: View {
     @State private var isSearching = false
     @State private var addedID: String?
 
+    /// Tracks the in-flight debounce task so a new keystroke cancels the old one.
+    @State private var debounceTask: Task<Void, Never>?
+
     var body: some View {
         NavigationStack {
             content
@@ -74,7 +77,21 @@ struct AppleMusicSearchView: View {
             }
         }
         .searchable(text: $term, prompt: "Songs on Apple Music")
-        .onSubmit(of: .search) { Task { await search() } }
+        // Immediate search on explicit submit (keyboard "Search" button).
+        .onSubmit(of: .search) {
+            debounceTask?.cancel()
+            Task { await search() }
+        }
+        // Debounced auto-search as the user types (500ms).
+        .onChange(of: term) { _, newValue in
+            debounceTask?.cancel()
+            let query = newValue
+            debounceTask = Task {
+                try? await Task.sleep(for: .milliseconds(500))
+                guard !Task.isCancelled else { return }
+                await search(query: query)
+            }
+        }
     }
 
     private func row(for song: MusicKit.Song) -> some View {
@@ -112,18 +129,27 @@ struct AppleMusicSearchView: View {
         authorization = await MusicAuthorization.request()
     }
 
+    /// Searches using the current `term` binding.
     private func search() async {
-        let query = term.trimmingCharacters(in: .whitespaces)
-        guard !query.isEmpty else { results = []; return }
+        await search(query: term)
+    }
+
+    /// Core search — takes an explicit query so the debounce closure captures
+    /// the value at scheduling time, not at execution time.
+    private func search(query: String) async {
+        let trimmed = query.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { results = []; return }
         isSearching = true
         defer { isSearching = false }
         do {
-            var request = MusicCatalogSearchRequest(term: query, types: [MusicKit.Song.self])
-            request.limit = 25
+            var request = MusicCatalogSearchRequest(term: trimmed, types: [MusicKit.Song.self])
+            request.limit = 15
             let response = try await request.response()
+            // Only update if this task wasn't cancelled by a newer keystroke.
+            guard !Task.isCancelled else { return }
             results = Array(response.songs)
         } catch {
-            results = []
+            if !Task.isCancelled { results = [] }
         }
     }
 

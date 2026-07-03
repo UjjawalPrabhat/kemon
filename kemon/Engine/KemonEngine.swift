@@ -141,6 +141,12 @@ final class KemonEngine {
     func start(song: Song) {
         self.song = song
         lyrics = LyricsLoader.lyrics(for: song)
+        // No bundled/stored lyrics (typically an Apple Music track, whose lyrics
+        // MusicKit never exposes) — fetch them from an open lyrics provider and
+        // fold them in when they arrive. Best-effort; playback never waits on it.
+        if lyrics.isEmpty {
+            fetchRemoteLyrics(for: song)
+        }
         smoothed = [:]
         score.reset()
         voiceScore.reset()
@@ -153,12 +159,37 @@ final class KemonEngine {
         vocalSuppressed = false
 
         playback = makePlaybackSource(for: song)
+        let isAppleMusic = song.source == .appleMusic
         activeSource.start()
 
         Task { @MainActor in
-            await playback.prepare(for: song)
-            canSuppressVocals = playback.supportsVocalSuppression
-            mic.start()          // mic (and its engine) up first so AEC converges
+            if isAppleMusic {
+                // Apple Music: MusicKit must prepare BEFORE we touch the
+                // AVAudioSession. Setting .playAndRecord early disrupts
+                // ApplicationMusicPlayer's mediaserverd connection
+                // ("ping did not pong" → prepareToPlay fails → silence).
+                await playback.prepare(for: song)
+                canSuppressVocals = playback.supportsVocalSuppression
+                // Now start the mic — this sets .playAndRecord + starts the
+                // engine. MusicKit's player is already prepared and tolerates
+                // the session change at this point. Crucially, run WITHOUT the
+                // voice-processing (VPIO) unit and WITH .mixWithOthers: the VPIO
+                // duplex unit otherwise starves ApplicationMusicPlayer of the
+                // audio route ("ping did not pong" → silence). AEC is useless on
+                // DRM audio anyway, so nothing is lost.
+                mic.start(voiceProcessing: false, mixWithOthers: true)
+            } else {
+                // Local songs: configure the session first, THEN prepare
+                // (which attaches the AVAudioPlayerNode to the still-stopped
+                // engine), THEN start the mic (which starts the engine with
+                // all nodes connected). This prevents the "player started
+                // when in a disconnected state" crash.
+                mic.configureSession()
+                await playback.prepare(for: song)
+                canSuppressVocals = playback.supportsVocalSuppression
+                mic.start()
+            }
+
             playback.play()
             isPerforming = true
             startClock()
@@ -178,6 +209,23 @@ final class KemonEngine {
     func setVocalSuppress(_ enabled: Bool) {
         guard playback.supportsVocalSuppression else { return }
         playback.vocalSuppressionEnabled = enabled
+    }
+
+    /// Fetches synced lyrics off the network for a song that has none locally,
+    /// then folds them into the live session and caches them onto the model so
+    /// future performances load instantly. No-ops on failure (shows no lyrics).
+    private func fetchRemoteLyrics(for song: Song) {
+        let title = song.title
+        let artist = song.artist
+        Task { @MainActor in
+            let fetched = await LyricsService.fetch(title: title, artist: artist)
+            // Bail if the fetch found nothing or the user already moved to a
+            // different song while we were waiting.
+            guard !fetched.isEmpty, self.song === song else { return }
+            lyrics = fetched
+            voiceScore.setLyricLines(fetched)
+            song.lyrics = fetched   // persisted by SwiftData's autosave
+        }
     }
 
     /// Chooses the playback source for the song. Apple Music songs play through

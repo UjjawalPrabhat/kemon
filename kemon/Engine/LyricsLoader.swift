@@ -30,6 +30,10 @@ enum LyricsLoader {
 
     /// Parses `<name>.lrc` from the app bundle. Returns nil if the file is absent.
     static func loadLRC(named name: String) -> [LyricLine]? {
+        // An empty name (e.g. an Apple Music song, which has no bundled audio)
+        // must NOT be looked up: `Bundle.url(forResource: "", ...)` returns the
+        // first `.lrc` in the bundle, which would show another song's lyrics.
+        guard !name.isEmpty else { return nil }
         guard let url = Bundle.main.url(forResource: name, withExtension: "lrc"),
               let text = try? String(contentsOf: url, encoding: .utf8) else {
             return nil

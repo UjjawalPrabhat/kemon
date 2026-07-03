@@ -24,6 +24,12 @@ final class MusicKitPlaybackSource: PlaybackSource {
     private let player = ApplicationMusicPlayer.shared
     private var prepared = false
 
+    /// Set once playback has actually reached `.playing`. Without this, the
+    /// window between `prepareToPlay()` (status `.stopped`) and the async
+    /// `play()` taking effect would look identical to a finished track, so the
+    /// first clock tick would end the performance before a note is heard.
+    private var started = false
+
     var currentTime: TimeInterval { player.playbackTime }
     var isPlaying: Bool { player.state.playbackStatus == .playing }
 
@@ -32,9 +38,9 @@ final class MusicKitPlaybackSource: PlaybackSource {
     var vocalSuppressionEnabled = false
 
     /// MusicKit doesn't expose track duration on the player synchronously; treat
-    /// a stopped-after-start state as finished.
+    /// a stopped state that follows actual playback as finished.
     var didFinish: Bool {
-        prepared && player.state.playbackStatus == .stopped
+        started && player.state.playbackStatus == .stopped
     }
 
     func prepare(for song: Song) async {
@@ -55,12 +61,21 @@ final class MusicKitPlaybackSource: PlaybackSource {
 
     func play() {
         guard prepared else { return }
-        Task { try? await player.play() }
+        Task {
+            do {
+                try await player.play()
+                started = true   // playback has actually begun
+            } catch {
+                // Leave `started` false so didFinish can't end the session on a
+                // failed start (e.g. "ping did not pong" media-server timeout).
+            }
+        }
     }
 
     func stop() {
         player.stop()
         prepared = false
+        started = false
     }
 
     func pause() { player.pause() }

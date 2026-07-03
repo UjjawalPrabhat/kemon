@@ -49,12 +49,52 @@ nonisolated final class MicController: NSObject, VoiceSource, @unchecked Sendabl
 
     private var isRunning = false
 
+    private var sessionConfigured = false
+
+    /// Whether to enable the voice-processing (AEC) I/O unit. Useful for local
+    /// songs (it subtracts the backing track from the captured voice), but its
+    /// VPIO duplex unit monopolizes audio I/O and makes ApplicationMusicPlayer's
+    /// connection time out ("ping did not pong"). Disabled for Apple Music, where
+    /// AEC has no reference signal to cancel anyway.
+    private var useVoiceProcessing = true
+
+    /// Adds `.mixWithOthers` so an active play-and-record session doesn't
+    /// interrupt ApplicationMusicPlayer's own rendering.
+    private var mixWithOthers = false
+
     // MARK: - Lifecycle
 
-    /// Requests mic permission if needed, configures the session for play-and-
-    /// record with echo cancellation, installs the tap, and starts the engine.
-    /// No-ops gracefully on denial so the rest of the app still runs.
-    func start() {
+    /// Configures the AVAudioSession for play-and-record WITHOUT starting the
+    /// engine. Call this early so MusicKit sees the session before it prepares,
+    /// and so LocalAudioEngine can attach its player node before the engine runs.
+    func configureSession() {
+        guard !sessionConfigured else { return }
+        do {
+            let session = AVAudioSession.sharedInstance()
+            var options: AVAudioSession.CategoryOptions =
+                [.defaultToSpeaker, .allowBluetoothHFP, .allowBluetoothA2DP]
+            if mixWithOthers { options.insert(.mixWithOthers) }
+            try session.setCategory(.playAndRecord, mode: .default, options: options)
+            try session.setActive(true)
+            sessionConfigured = true
+        } catch {
+            // Session config failed — mic will no-op.
+        }
+    }
+
+    /// `VoiceSource` entry point: local-song defaults (AEC on, no mixing).
+    func start() { start(voiceProcessing: true, mixWithOthers: false) }
+
+    /// Requests mic permission if needed, configures the session (if not yet),
+    /// installs the tap, and starts the engine.
+    ///
+    /// - Parameters:
+    ///   - voiceProcessing: enable AEC (local songs). Pass `false` for Apple
+    ///     Music so the VPIO unit doesn't break ApplicationMusicPlayer.
+    ///   - mixWithOthers: add `.mixWithOthers` to the session (Apple Music).
+    func start(voiceProcessing: Bool, mixWithOthers: Bool) {
+        self.useVoiceProcessing = voiceProcessing
+        self.mixWithOthers = mixWithOthers
         switch AVAudioApplication.shared.recordPermission {
         case .granted:
             configureAndRun()
@@ -88,33 +128,42 @@ nonisolated final class MicController: NSObject, VoiceSource, @unchecked Sendabl
     }
 
     private func configureAndRun() {
+        guard !isRunning else { return }
         do {
-            let session = AVAudioSession.sharedInstance()
-            // Play-and-record so we can hear the backing track AND capture the
-            // voice. .defaultToSpeaker keeps playback on the speaker (not the
-            // receiver); voice-processing cancels the resulting echo.
-            try session.setCategory(.playAndRecord,
-                                    mode: .default,
-                                    options: [.defaultToSpeaker, .allowBluetoothHFP, .allowBluetoothA2DP])
-            try session.setActive(true)
+            // Ensure the session is configured (no-ops if already done).
+            configureSession()
 
             let input = engine.inputNode
-            // Apple's on-device acoustic echo cancellation + noise suppression,
-            // so speaker playback doesn't pollute the captured voice. Must be
-            // set before the engine starts.
-            try? input.setVoiceProcessingEnabled(true)
 
-            // Tap the real input format — never assume 44.1k (Bluetooth forces
-            // 16/24 kHz). Analysis uses this rate for the lag→Hz conversion.
-            let format = input.inputFormat(forBus: 0)
             accumulator.removeAll(keepingCapacity: true)
             recentF0.removeAll(keepingCapacity: true)
 
+            // Step 1: Prepare first so AVAudioEngine finalises the hardware
+            // format BEFORE we touch voice-processing.
+            engine.prepare()
+
+            // Step 2: Enable (or disable) voice processing AFTER prepare().
+            // For Apple Music the VPIO unit must stay OFF or it starves
+            // ApplicationMusicPlayer of the audio route ("ping did not pong").
+            if input.isVoiceProcessingEnabled != useVoiceProcessing {
+                try? input.setVoiceProcessingEnabled(useVoiceProcessing)
+            }
+
+            // Step 3: Re-read the format — voice processing or Bluetooth HFP
+            // may have changed the sample rate from what prepare() saw.
+            let format = input.inputFormat(forBus: 0)
+            guard format.sampleRate > 0 else {
+                throw NSError(domain: "MicController",
+                              code: -1,
+                              userInfo: [NSLocalizedDescriptionKey:
+                                "Invalid input format (sampleRate = 0). Check AVAudioSession category/options."])
+            }
+
+            // Step 4: Install tap and start.
             input.installTap(onBus: 0, bufferSize: UInt32(windowSize), format: format) { [weak self] buffer, _ in
                 self?.process(buffer, sampleRate: format.sampleRate)
             }
 
-            engine.prepare()
             try engine.start()
             isRunning = true
         } catch {

@@ -95,11 +95,14 @@ final class LocalAudioEngine: PlaybackSource {
     }
 
     func play() {
-        guard originalBuffer != nil else { return }
+        guard originalBuffer != nil, attached else { return }
         finished = false
         segmentStartFrame = 0
         scheduleActiveBuffer(fromFrame: 0)
-        if !engine.isRunning { try? engine.start() }
+        if !engine.isRunning {
+            engine.prepare()
+            try? engine.start()
+        }
         player.play()
     }
 

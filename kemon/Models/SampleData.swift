@@ -66,6 +66,13 @@ enum SampleData {
                 genre: .balladSad,
                 lyrics: []
             ),
+            Song(
+                title: "Butterflies",
+                artist: "Brent Faiyaz",
+                audioFileName: "Butterflies_BrentFaiyaz",
+                genre: .balladSad,
+                lyrics: []
+            ),
         ]
     }
 }
