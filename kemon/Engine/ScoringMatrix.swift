@@ -46,21 +46,6 @@ struct ScoringMatrix {
         return Int((accumulatedSimilarity / Double(facePresenceCount) * 100).rounded())
     }
 
-    func summary(for song: Song) -> String {
-        let score = normalizedScore
-        let vibe = song.genre.displayName.lowercased()
-        switch score {
-        case 85...:
-            return "You nailed the \(vibe) vibe of \"\(song.title)\"! Score: \(score)%"
-        case 65..<85:
-            return "Strong performance — you mostly matched the \(vibe) energy. Score: \(score)%"
-        case 40..<65:
-            return "You found the vibe in flashes. Lean further into it next time. Score: \(score)%"
-        default:
-            return "The expression didn't quite match the \(vibe) mood yet. Score: \(score)%"
-        }
-    }
-
     // MARK: - Math
 
     /// Cosine similarity between two sparse emotion vectors over the full

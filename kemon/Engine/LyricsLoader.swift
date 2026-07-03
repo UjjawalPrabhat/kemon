@@ -28,6 +28,14 @@ enum LyricsLoader {
         return song.lyrics
     }
 
+    /// Fetches synced lyrics off the network for songs that have none locally.
+    /// Only Apple Music songs qualify — bundled/imported songs rely on their
+    /// `.lrc` so the timing matches the actual recording. Returns [] otherwise.
+    static func remoteLyrics(for song: Song) async -> [LyricLine] {
+        guard song.source == .appleMusic else { return [] }
+        return await LyricsService.fetch(title: song.title, artist: song.artist)
+    }
+
     /// Parses `<name>.lrc` from the app bundle. Returns nil if the file is absent.
     static func loadLRC(named name: String) -> [LyricLine]? {
         // An empty name (e.g. an Apple Music song, which has no bundled audio)

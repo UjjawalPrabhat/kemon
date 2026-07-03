@@ -66,7 +66,7 @@ struct AppleMusicSearchView: View {
                 }
                 .disabled(addedID == song.id.rawValue)
             }
-        } // List
+        }
         .overlay {
             if results.isEmpty {
                 ContentUnavailableView(
@@ -80,7 +80,7 @@ struct AppleMusicSearchView: View {
         // Immediate search on explicit submit (keyboard "Search" button).
         .onSubmit(of: .search) {
             debounceTask?.cancel()
-            Task { await search() }
+            Task { await search(query: term) }
         }
         // Debounced auto-search as the user types (500ms).
         .onChange(of: term) { _, newValue in
@@ -129,13 +129,8 @@ struct AppleMusicSearchView: View {
         authorization = await MusicAuthorization.request()
     }
 
-    /// Searches using the current `term` binding.
-    private func search() async {
-        await search(query: term)
-    }
-
-    /// Core search — takes an explicit query so the debounce closure captures
-    /// the value at scheduling time, not at execution time.
+    /// Explicit query so the debounce closure captures the value at scheduling
+    /// time, not at execution time.
     private func search(query: String) async {
         let trimmed = query.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { results = []; return }
