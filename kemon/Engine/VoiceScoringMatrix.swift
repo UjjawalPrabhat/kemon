@@ -37,9 +37,6 @@ struct VoiceScoringMatrix {
     private var onsetTimes: [TimeInterval] = []
     private var lyricLineTimes: [TimeInterval] = []
 
-    /// Live value for UI feedback: in-tune-ness of the most recent voiced frame.
-    private(set) var lastInTune: Double = 0
-
     // MARK: - Ingest
 
     /// Seeds the lyric line start times used for timing scoring. Call once at
@@ -53,13 +50,11 @@ struct VoiceScoringMatrix {
         if reading.isVoiced && !wasVoiced { onsetTimes.append(reading.mediaTime) }
         wasVoiced = reading.isVoiced
 
-        guard reading.isVoiced else { lastInTune = 0; return }
+        guard reading.isVoiced else { return }
         voicedCount += 1
 
         if let cents = reading.centsOff {
-            let inTune = max(0, 1 - abs(cents) / 50)
-            inTuneSum += inTune
-            lastInTune = inTune
+            inTuneSum += max(0, 1 - abs(cents) / 50)
         }
 
         if let note = reading.nearestNote, let cents = reading.centsOff {

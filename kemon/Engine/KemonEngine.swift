@@ -211,16 +211,14 @@ final class KemonEngine {
         playback.vocalSuppressionEnabled = enabled
     }
 
-    /// Fetches synced lyrics off the network for a song that has none locally,
-    /// then folds them into the live session and caches them onto the model so
-    /// future performances load instantly. No-ops on failure (shows no lyrics).
+    /// Resolves lyrics for a song with none locally (Apple Music tracks), then
+    /// folds them into the live session and caches them onto the model. The
+    /// lyric layer decides source and eligibility; the engine just applies the
+    /// result. No-ops on failure (shows no lyrics).
     private func fetchRemoteLyrics(for song: Song) {
-        let title = song.title
-        let artist = song.artist
         Task { @MainActor in
-            let fetched = await LyricsService.fetch(title: title, artist: artist)
-            // Bail if the fetch found nothing or the user already moved to a
-            // different song while we were waiting.
+            let fetched = await LyricsLoader.remoteLyrics(for: song)
+            // Bail if nothing came back or the user moved to another song.
             guard !fetched.isEmpty, self.song === song else { return }
             lyrics = fetched
             voiceScore.setLyricLines(fetched)

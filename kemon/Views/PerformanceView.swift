@@ -115,9 +115,13 @@ struct PerformanceView: View {
         }
     }
 
-    /// Flip to `false` before the demo. Shows raw model confidences + the Vision
-    /// smile score so the fusion weights can be tuned against real faces.
+    /// Raw model confidences + f0/smile readout for tuning against real faces.
+    /// Debug builds only, so release/demo builds stay clean.
+    #if DEBUG
     private static let showsDebug = true
+    #else
+    private static let showsDebug = false
+    #endif
 
     private var debugReadout: some View {
         let v = engine.currentVoice

@@ -32,8 +32,11 @@ nonisolated final class MicController: NSObject, VoiceSource, @unchecked Sendabl
     private let windowSize = 2048
     private let hopSize = 1024
 
-    /// Sliding buffer of mono samples awaiting analysis (tap-thread only).
-    private var accumulator: [Float] = []
+    /// Preallocated analysis window and how many samples currently fill it.
+    /// Realtime-safe: the tap only memcpy/memmoves into this fixed buffer —
+    /// never allocates or shifts a growing array. Sized in `configureAndRun`.
+    private var window: [Float] = []
+    private var fill = 0
 
     /// Recent voiced f0 values for median filtering (tap-thread only).
     private var recentF0: [Double] = []
@@ -135,7 +138,8 @@ nonisolated final class MicController: NSObject, VoiceSource, @unchecked Sendabl
 
             let input = engine.inputNode
 
-            accumulator.removeAll(keepingCapacity: true)
+            if window.count != windowSize { window = [Float](repeating: 0, count: windowSize) }
+            fill = 0
             recentF0.removeAll(keepingCapacity: true)
 
             // Step 1: Prepare first so AVAudioEngine finalises the hardware
@@ -176,57 +180,58 @@ nonisolated final class MicController: NSObject, VoiceSource, @unchecked Sendabl
     private func process(_ buffer: AVAudioPCMBuffer, sampleRate: Double) {
         guard let channel = buffer.floatChannelData?[0] else { return }
         let frames = Int(buffer.frameLength)
-        guard frames > 0 else { return }
+        guard frames > 0, window.count == windowSize else { return }
 
-        accumulator.append(contentsOf: UnsafeBufferPointer(start: channel, count: frames))
+        let keep = windowSize - hopSize
+        let stride = MemoryLayout<Float>.stride
 
-        // Analyse in fixed windows, sliding by hop, so pitch stays stable
-        // regardless of the tap's actual buffer size.
-        while accumulator.count >= windowSize {
-            let reading = analyzeWindow(sampleRate: sampleRate)
-            accumulator.removeFirst(hopSize)
+        window.withUnsafeMutableBufferPointer { buf in
+            let dst = buf.baseAddress!
+            var consumed = 0
+            while consumed < frames {
+                let take = min(windowSize - fill, frames - consumed)
+                memcpy(dst + fill, channel + consumed, take * stride)
+                fill += take
+                consumed += take
+                guard fill == windowSize else { continue }
 
-            let now = CACurrentMediaTime()
-            guard now - lastEmit >= minEmitInterval else { continue }
-            lastEmit = now
-            if let onReading {
-                Task { @MainActor in onReading(reading) }
+                let reading = analyze(dst, sampleRate: sampleRate)
+                memmove(dst, dst + hopSize, keep * stride)  // slide by hop, keep overlap
+                fill = keep
+                emitThrottled(reading)
             }
-        }
-
-        // Bound memory if analysis somehow falls behind.
-        if accumulator.count > windowSize * 4 {
-            accumulator.removeFirst(accumulator.count - windowSize)
         }
     }
 
-    /// Runs pitch + RMS on the oldest `windowSize` samples and applies the
-    /// silence/confidence gates and median smoothing.
-    private func analyzeWindow(sampleRate: Double) -> VoiceReading {
+    /// Runs pitch + RMS on a full window and applies the silence/confidence
+    /// gates and median smoothing.
+    private func analyze(_ ptr: UnsafePointer<Float>, sampleRate: Double) -> VoiceReading {
         var reading = VoiceReading.empty
+        let rms = detector.rms(ptr, count: windowSize)
+        reading.rms = rms
+        reading.db = rms > 0 ? max(-80, 20 * log10(rms)) : -80
 
-        accumulator.withUnsafeBufferPointer { buf in
-            let ptr = buf.baseAddress!
-            let rms = detector.rms(ptr, count: windowSize)
-            reading.rms = rms
-            reading.db = rms > 0 ? max(-80, 20 * log10(rms)) : -80
+        guard rms >= rmsFloor else { return reading }
 
-            guard rms >= rmsFloor else { return } // silence → unvoiced
+        let est = detector.detect(ptr, count: windowSize, sampleRate: sampleRate)
+        reading.confidence = est.confidence
+        guard let f0 = est.f0, est.confidence >= confidenceFloor else { return reading }
 
-            let est = detector.detect(ptr, count: windowSize, sampleRate: sampleRate)
-            reading.confidence = est.confidence
-            guard let f0 = est.f0, est.confidence >= confidenceFloor else { return }
-
-            let smoothed = medianFiltered(f0)
-            let midi = PitchMath.midi(fromHz: smoothed)
-            let (note, cents) = PitchMath.nearestNoteAndCents(fromMIDI: midi)
-            reading.f0 = smoothed
-            reading.midiNote = midi
-            reading.nearestNote = note
-            reading.centsOff = cents
-            reading.isVoiced = true
-        }
+        let smoothed = medianFiltered(f0)
+        let (note, cents) = PitchMath.nearestNoteAndCents(fromMIDI: PitchMath.midi(fromHz: smoothed))
+        reading.f0 = smoothed
+        reading.nearestNote = note
+        reading.centsOff = cents
+        reading.isVoiced = true
         return reading
+    }
+
+    /// Emits at most `minEmitInterval` apart so the UI/scoring see ~30 Hz.
+    private func emitThrottled(_ reading: VoiceReading) {
+        let now = CACurrentMediaTime()
+        guard now - lastEmit >= minEmitInterval else { return }
+        lastEmit = now
+        if let onReading { Task { @MainActor in onReading(reading) } }
     }
 
     /// Median of the last few voiced f0 values — kills single-frame octave
