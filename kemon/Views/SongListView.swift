@@ -10,6 +10,7 @@ import SwiftData
 
 struct SongListView: View {
     @Query(sort: \Song.title) private var songs: [Song]
+    @State private var showingAppleMusic = false
 
     var body: some View {
         NavigationStack {
@@ -21,6 +22,22 @@ struct SongListView: View {
                 }
             }
             .navigationTitle("Kemon")
+            .toolbar {
+                #if canImport(MusicKit)
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        showingAppleMusic = true
+                    } label: {
+                        Label("Add from Apple Music", systemImage: "plus")
+                    }
+                }
+                #endif
+            }
+            #if canImport(MusicKit)
+            .sheet(isPresented: $showingAppleMusic) {
+                AppleMusicSearchView()
+            }
+            #endif
             .overlay {
                 if songs.isEmpty {
                     ContentUnavailableView(

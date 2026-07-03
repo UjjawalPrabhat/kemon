@@ -28,10 +28,12 @@ struct PerformanceView: View {
 
             VStack {
                 header
+                voiceHUD
                 Spacer()
                 lyricsBox
                 Spacer()
                 if engine.isPerforming {
+                    vocalControls
                     startStopButton
                 }
             }
@@ -118,18 +120,103 @@ struct PerformanceView: View {
     private static let showsDebug = true
 
     private var debugReadout: some View {
-        VStack(alignment: .leading, spacing: 1) {
+        let v = engine.currentVoice
+        return VStack(alignment: .leading, spacing: 1) {
             Text(String(format: "smile %.2f", engine.debugSmile))
                 .foregroundStyle(.green)
             ForEach(Emotion.allCases) { e in
                 Text(String(format: "%@ %.2f", e.rawValue, engine.debugConfidences[e] ?? 0))
             }
+            Text(String(format: "f0 %.0f  %@ %+.0f¢  db %.0f  conf %.2f",
+                        v.f0 ?? 0, v.noteName, v.centsOff ?? 0, v.db, v.confidence))
+                .foregroundStyle(.cyan)
         }
         .font(.system(size: 11, design: .monospaced))
         .foregroundStyle(.white.opacity(0.85))
         .padding(6)
         .background(.black.opacity(0.35), in: RoundedRectangle(cornerRadius: 6))
         .padding(.leading, 4)
+    }
+
+    // MARK: - Voice feedback
+
+    /// Live pitch (note + cents needle) and energy meter.
+    private var voiceHUD: some View {
+        let voice = engine.currentVoice
+        return HStack(spacing: 14) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(voice.isVoiced ? voice.noteName : "listening…")
+                    .font(.title3.weight(.bold).monospacedDigit())
+                if let cents = voice.centsOff {
+                    Text(String(format: "%+.0f cents", cents))
+                        .font(.caption2.monospacedDigit())
+                        .foregroundStyle(.white.opacity(0.7))
+                }
+            }
+            .frame(width: 96, alignment: .leading)
+
+            centsNeedle(cents: voice.centsOff)
+            energyMeter(db: voice.db)
+                .frame(width: 10)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14))
+        .foregroundStyle(.white)
+    }
+
+    /// A −50…+50 cents scale with a marker that greens as it nears the center.
+    private func centsNeedle(cents: Double?) -> some View {
+        GeometryReader { geo in
+            let width = geo.size.width
+            let fraction = ((cents ?? 0) + 50) / 100  // 0…1
+            let accuracy = 1 - min(1, abs(cents ?? 50) / 50)
+            ZStack(alignment: .leading) {
+                Capsule().fill(.white.opacity(0.18)).frame(height: 4)
+                Rectangle().fill(.white.opacity(0.35))
+                    .frame(width: 2, height: 14)
+                    .position(x: width / 2, y: geo.size.height / 2) // center = in-tune
+                if cents != nil {
+                    Circle()
+                        .fill(Color(hue: 0.0 + 0.33 * accuracy, saturation: 0.85, brightness: 1))
+                        .frame(width: 14, height: 14)
+                        .position(x: width * fraction, y: geo.size.height / 2)
+                        .animation(.easeOut(duration: 0.08), value: fraction)
+                }
+            }
+        }
+        .frame(height: 18)
+    }
+
+    /// Vertical loudness bar, −60…0 dBFS mapped to 0…1.
+    private func energyMeter(db: Double) -> some View {
+        let level = min(1, max(0, (db + 60) / 60))
+        return GeometryReader { geo in
+            ZStack(alignment: .bottom) {
+                Capsule().fill(.white.opacity(0.18))
+                Capsule().fill(.green.opacity(0.85))
+                    .frame(height: geo.size.height * level)
+                    .animation(.easeOut(duration: 0.08), value: level)
+            }
+        }
+    }
+
+    /// Vocal-suppress toggle for local songs; a headphones hint for MusicKit.
+    @ViewBuilder
+    private var vocalControls: some View {
+        if engine.canSuppressVocals {
+            Toggle(isOn: Binding(
+                get: { engine.vocalSuppressed },
+                set: { engine.vocalSuppressed = $0 }
+            )) {
+                Label("Dim vocals", systemImage: "music.mic")
+            }
+            .toggleStyle(.button)
+            .tint(.white)
+            .font(.subheadline)
+            .padding(.bottom, 4)
+        }
     }
 
     private var lyricsBox: some View {
@@ -172,8 +259,9 @@ struct PerformanceView: View {
             Text(summary)
                 .font(.title2.weight(.semibold))
                 .multilineTextAlignment(.center)
-            Text("\(engine.score.normalizedScore)%")
+            Text("\(engine.overallScore)%")
                 .font(.system(size: 64, weight: .heavy, design: .rounded))
+            scoreBreakdown
             Button("Sing Again") { engine.start(song: song) }
                 .buttonStyle(.borderedProminent)
         }
@@ -181,6 +269,25 @@ struct PerformanceView: View {
         .frame(maxWidth: 340)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 24))
         .padding()
+    }
+
+    /// Voice + vibe sub-scores under the overall percentage.
+    private var scoreBreakdown: some View {
+        HStack(spacing: 18) {
+            metric("Vibe", engine.score.normalizedScore)
+            if let voice = engine.voiceScore.normalizedScore {
+                metric("Voice", voice)
+                if let pitch = engine.voiceScore.inTuneness { metric("Pitch", pitch) }
+                if let timing = engine.voiceScore.timing { metric("Timing", timing) }
+            }
+        }
+    }
+
+    private func metric(_ label: String, _ value: Int) -> some View {
+        VStack(spacing: 2) {
+            Text("\(value)").font(.headline.monospacedDigit())
+            Text(label).font(.caption2).foregroundStyle(.secondary)
+        }
     }
 
     // MARK: - Derived UI state
