@@ -257,6 +257,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSAppleMusicUsageDescription = "Kemon plays Apple Music songs you choose as karaoke backing tracks.";
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Kemon uses the front camera to read your expressions and score how well they match the song's vibe.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Kemon listens to your singing to score your pitch, timing, and dynamics.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -292,6 +293,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSAppleMusicUsageDescription = "Kemon plays Apple Music songs you choose as karaoke backing tracks.";
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Kemon uses the front camera to read your expressions and score how well they match the song's vibe.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Kemon listens to your singing to score your pitch, timing, and dynamics.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;

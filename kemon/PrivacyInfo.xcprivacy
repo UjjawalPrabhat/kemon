@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Kemon does not track users across apps or websites. -->
+	<key>NSPrivacyTracking</key>
+	<false/>
+	<key>NSPrivacyTrackingDomains</key>
+	<array/>
+	<!--
+	    No data is collected in Apple's privacy sense: camera and microphone are
+	    processed entirely on-device (emotion + pitch scoring) and never leave the
+	    phone. The only data sent off-device is a song's title/artist, to fetch
+	    public synced lyrics — not linked to the user's identity.
+	-->
+	<key>NSPrivacyCollectedDataTypes</key>
+	<array/>
+	<!-- The app's own code calls no "required reason" APIs, and it bundles no
+	     third-party SDKs. -->
+	<key>NSPrivacyAccessedAPITypes</key>
+	<array/>
+</dict>
+</plist>
