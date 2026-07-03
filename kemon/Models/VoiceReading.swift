@@ -17,11 +17,7 @@ nonisolated struct VoiceReading: Sendable {
     /// (silence, breath, or the pitch detector wasn't confident).
     var f0: Double?
 
-    /// Continuous MIDI note number derived from `f0` (69 + 12·log2(f0/440)),
-    /// or nil when unvoiced. Continuous so the UI needle can move smoothly.
-    var midiNote: Double?
-
-    /// Nearest equal-tempered semitone (rounded `midiNote`), or nil when unvoiced.
+    /// Nearest equal-tempered semitone, or nil when unvoiced.
     var nearestNote: Int?
 
     /// Signed cents from `nearestNote`, in −50...+50, or nil when unvoiced.
@@ -46,7 +42,6 @@ nonisolated struct VoiceReading: Sendable {
 
     static let empty = VoiceReading(
         f0: nil,
-        midiNote: nil,
         nearestNote: nil,
         centsOff: nil,
         rms: 0,
