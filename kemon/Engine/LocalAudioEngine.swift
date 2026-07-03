@@ -22,9 +22,15 @@ final class LocalAudioEngine: PlaybackSource {
     private let player = AVAudioPlayerNode()
     private let separator: VocalSeparating
 
-    /// The decoded track, and its vocal-suppressed twin (nil for mono sources).
+    /// The decoded track. Its vocal-suppressed twin is built lazily on the first
+    /// toggle — it doubles audio memory (~tens of MB per song) and most
+    /// performances never enable suppression.
     private var originalBuffer: AVAudioPCMBuffer?
     private var suppressedBuffer: AVAudioPCMBuffer?
+
+    /// Whether the source is stereo, i.e. center-channel suppression is possible.
+    /// Determined at `prepare` without paying to build the suppressed buffer.
+    private var canSuppress = false
 
     /// Sample offset of the segment currently scheduled, so `currentTime`
     /// survives a mid-song reschedule (toggle / future seek).
@@ -48,7 +54,7 @@ final class LocalAudioEngine: PlaybackSource {
 
     var isPlaying: Bool { player.isPlaying }
 
-    var supportsVocalSuppression: Bool { suppressedBuffer != nil }
+    var supportsVocalSuppression: Bool { canSuppress }
 
     var vocalSuppressionEnabled: Bool = false {
         didSet {
@@ -87,7 +93,7 @@ final class LocalAudioEngine: PlaybackSource {
             return
         }
         originalBuffer = buffer
-        suppressedBuffer = separator.suppressVocals(in: buffer)
+        canSuppress = buffer.format.channelCount >= 2
 
         engine.attach(player)
         engine.connect(player, to: engine.mainMixerNode, format: format)
@@ -122,14 +128,21 @@ final class LocalAudioEngine: PlaybackSource {
         }
         originalBuffer = nil
         suppressedBuffer = nil
+        canSuppress = false
         finished = false
         segmentStartFrame = 0
     }
 
     // MARK: - Scheduling
 
+    /// The buffer to play, building the suppressed twin on first use so its
+    /// memory cost is only paid when the singer actually enables the toggle.
     private var activeBuffer: AVAudioPCMBuffer? {
-        (vocalSuppressionEnabled ? suppressedBuffer : originalBuffer) ?? originalBuffer
+        guard vocalSuppressionEnabled else { return originalBuffer }
+        if suppressedBuffer == nil, let originalBuffer {
+            suppressedBuffer = separator.suppressVocals(in: originalBuffer)
+        }
+        return suppressedBuffer ?? originalBuffer
     }
 
     /// Schedules the active buffer starting at `fromFrame`. Sets `finished` when
