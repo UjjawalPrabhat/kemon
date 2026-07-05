@@ -32,20 +32,9 @@ struct TurnOrderView: View {
 
             Spacer()
 
-            // Slot Machine Reels Panel
+            // Slot Machine Reels Panel floating directly in space
             HStack(spacing: 0) {
                 ForEach(0..<battle.players.count, id: \.self) { position in
-                    if position > 0 {
-                        // Metallic separator line between reels
-                        Rectangle()
-                            .fill(LinearGradient(
-                                colors: [Color.gray.opacity(0.3), Color.white.opacity(0.6), Color.gray.opacity(0.3)],
-                                startPoint: .leading, endPoint: .trailing
-                            ))
-                            .frame(width: 3)
-                            .frame(height: 230)
-                    }
-                    
                     SlotReelView(
                         position: position,
                         players: battle.players,
@@ -61,13 +50,6 @@ struct TurnOrderView: View {
                     )
                 }
             }
-            .background(Color.black.opacity(0.45))
-            .clipShape(RoundedRectangle(cornerRadius: 24))
-            .overlay(
-                RoundedRectangle(cornerRadius: 24)
-                    .stroke(Color.white.opacity(0.25), lineWidth: 2)
-            )
-            .shadow(color: Color(red: 0.4, green: 0.8, blue: 1.0).opacity(0.3), radius: 12)
 
             Spacer()
 
@@ -105,7 +87,7 @@ struct TurnOrderView: View {
                         HStack(spacing: 40) {
                             spinButtonView
                             
-                            KemonPrimaryButton(title: "START BATTLE", systemImage: "flag.checkered") {
+                            KemonPrimaryButton(title: "START BATTLE") {
                                 battle.startBattle()
                             }
                         }
@@ -202,7 +184,7 @@ struct SlotReelView: View {
     let spinDuration: Double
     let onFinished: () -> Void
     
-    @State private var scrollOffset: CGFloat = 60
+    @State private var scrollOffset: CGFloat = 85
     @State private var reelItems: [Player] = []
     
     private let itemHeight: CGFloat = 110
@@ -210,20 +192,39 @@ struct SlotReelView: View {
     var body: some View {
         GeometryReader { geo in
             ZStack {
-                // Background cylinder fill
-                Color.black.opacity(0.4)
+                // Curved Cylinder Background Asset (purple/red alternating)
+                Image((position % 2 == 0) ? "slot-purple" : "slot-red")
+                    .resizable()
+                    .scaledToFill()
                 
-                // Vertical scrolling stack
+                // Vertical scrolling stack of Memoji heads
                 VStack(spacing: 0) {
-                    ForEach(Array(reelItems.enumerated()), id: \.offset) { _, player in
-                        VStack(spacing: 8) {
-                            AvatarBubble(avatar: player.avatar, size: 70)
-                            Text(player.displayName)
-                                .font(.poppinsBold(size: 11))
-                                .foregroundStyle(.white)
-                                .lineLimit(1)
+                    ForEach(Array(reelItems.enumerated()), id: \.offset) { itemIndex, player in
+                        let distance = abs(scrollOffset + CGFloat(itemIndex) * itemHeight - 85)
+                        let fraction = min(distance / itemHeight, 1.0)
+                        
+                        // Scale from 1.3 (at center) to 0.75 (one slot away)
+                        let scale = 1.3 - (0.55 * fraction)
+                        // Opacity from 1.0 (at center) to 0.5 (one slot away)
+                        let opacity = 1.0 - (0.5 * fraction)
+                        
+                        ZStack {
+                            if let avatar = player.avatar {
+                                Image(avatar.imageName)
+                                    .resizable()
+                                    .scaledToFit()
+                                    .frame(width: 76, height: 76)
+                            } else {
+                                Image("avatar-placeholder")
+                                    .resizable()
+                                    .scaledToFit()
+                                    .frame(width: 50, height: 50)
+                                    .opacity(0.3)
+                            }
                         }
                         .frame(width: geo.size.width, height: itemHeight)
+                        .scaleEffect(scale)
+                        .opacity(opacity)
                     }
                 }
                 .offset(y: scrollOffset)
@@ -231,32 +232,20 @@ struct SlotReelView: View {
                 // Overlay cylinder shadow for 3D depth
                 LinearGradient(
                     colors: [
-                        .black.opacity(0.85),
-                        .black.opacity(0.4),
+                        .black.opacity(0.75),
+                        .black.opacity(0.2),
                         .clear,
                         .clear,
-                        .black.opacity(0.4),
-                        .black.opacity(0.85)
+                        .black.opacity(0.2),
+                        .black.opacity(0.75)
                     ],
                     startPoint: .top, endPoint: .bottom
                 )
                 .allowsHitTesting(false)
-                
-                // Middle selector highlight guide
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(Color(red: 0.4, green: 0.8, blue: 1.0).opacity(0.8), lineWidth: 2)
-                    .frame(height: itemHeight - 10)
-                    .padding(.horizontal, 4)
-                    .shadow(color: Color(red: 0.4, green: 0.8, blue: 1.0), radius: 4)
-                    .shadow(color: Color(red: 0.4, green: 0.8, blue: 1.0), radius: 8)
             }
         }
-        .frame(width: 100, height: 230)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(Color.white.opacity(0.15), lineWidth: 1)
-        )
+        .frame(width: 120, height: 280)
+        .clipShape(RoundedRectangle(cornerRadius: 24))
         .onAppear {
             setupReel()
         }
@@ -273,7 +262,7 @@ struct SlotReelView: View {
         } else {
             reelItems = players.isEmpty ? [] : [players[0]]
         }
-        scrollOffset = 60
+        scrollOffset = 85
     }
     
     private func startSpin() {
@@ -294,10 +283,10 @@ struct SlotReelView: View {
         }
         
         reelItems = items
-        scrollOffset = 60
+        scrollOffset = 85
         
         let targetOffset = -itemHeight * CGFloat(items.count - 1)
-        let centeredOffset = targetOffset + 60
+        let centeredOffset = targetOffset + 85
         
         withAnimation(.easeOut(duration: spinDuration)) {
             scrollOffset = centeredOffset
@@ -306,7 +295,7 @@ struct SlotReelView: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + spinDuration) {
             if targetPlayerIndex < players.count {
                 reelItems = [players[targetPlayerIndex]]
-                scrollOffset = 60
+                scrollOffset = 85
             }
             onFinished()
         }
