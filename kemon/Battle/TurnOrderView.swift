@@ -33,21 +33,59 @@ struct TurnOrderView: View {
             Spacer()
 
             // Slot Machine Reels Panel floating directly in space
-            HStack(spacing: 0) {
+            HStack(spacing: 16) {
                 ForEach(0..<battle.players.count, id: \.self) { position in
-                    SlotReelView(
-                        position: position,
-                        players: battle.players,
-                        targetPlayerIndex: battle.order.indices.contains(position) ? battle.order[position] : 0,
-                        isSpinning: isSpinning,
-                        spinDuration: 1.5 + Double(position) * 0.4,
-                        onFinished: {
-                            finishedReelsCount += 1
-                            if finishedReelsCount == battle.players.count {
-                                isSpinning = false
+                    VStack(spacing: 12) {
+                        // Singing Order Badge (1 to N)
+                        Text("\(position + 1)")
+                            .font(.orbitronBold(size: 14))
+                            .foregroundStyle(.white)
+                            .frame(width: 28, height: 28)
+                            .background(
+                                Circle()
+                                    .fill(Color(red: 0.12, green: 0.2, blue: 0.45).opacity(0.8))
+                                    .overlay(
+                                        Circle()
+                                            .stroke(Color(red: 0.4, green: 0.8, blue: 1.0), lineWidth: 1.5)
+                                    )
+                            )
+                            .shadow(color: Color(red: 0.4, green: 0.8, blue: 1.0).opacity(0.5), radius: 6)
+                        
+                        SlotReelView(
+                            position: position,
+                            players: battle.players,
+                            targetPlayerIndex: battle.order.indices.contains(position) ? battle.order[position] : 0,
+                            isSpinning: isSpinning,
+                            spinDuration: 1.5 + Double(position) * 0.4,
+                            onFinished: {
+                                finishedReelsCount += 1
+                                if finishedReelsCount == battle.players.count {
+                                    isSpinning = false
+                                }
                             }
+                        )
+                        
+                        // Player name showing only when finished spinning
+                        if !isSpinning && hasSpun {
+                            let targetIndex = battle.order.indices.contains(position) ? battle.order[position] : 0
+                            if targetIndex < battle.players.count {
+                                let player = battle.players[targetIndex]
+                                Text(player.displayName)
+                                    .font(.poppinsBold(size: 13))
+                                    .foregroundStyle(.white)
+                                    .lineLimit(1)
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 4)
+                                    .background(Color.white.opacity(0.08))
+                                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                                    .transition(.opacity.combined(with: .scale))
+                            }
+                        } else {
+                            // Spacer placeholder to avoid vertical layout shift
+                            Spacer()
+                                .frame(height: 25)
                         }
-                    )
+                    }
                 }
             }
 
