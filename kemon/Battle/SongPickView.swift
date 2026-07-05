@@ -39,7 +39,7 @@ struct SongPickView: View {
             // Left Navigation Sidebar (pinned fixed width)
             sidebarView
             
-            // Right Main Content View (fully scrollable, width-restricted)
+            // Right Main Content View (fully scrollable, maximized width)
             mainContentView
         }
         .foregroundStyle(.white)
@@ -114,7 +114,8 @@ struct SongPickView: View {
             }
             .buttonStyle(.plain)
         }
-        .padding(.vertical, 32)
+        .padding(.top, 48) // Push down to avoid overlapping with window controls
+        .padding(.bottom, 32)
         .padding(.horizontal, 16)
         .frame(width: 220)
         .frame(maxHeight: .infinity)
@@ -208,7 +209,8 @@ struct SongPickView: View {
                     }
                 }
             }
-            .frame(maxWidth: 820)
+            .frame(maxWidth: .infinity) // Maximize width usage
+            .padding(.trailing, 48) // Margin on the right
             .padding(.bottom, 32)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
