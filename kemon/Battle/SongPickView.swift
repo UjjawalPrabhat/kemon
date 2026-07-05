@@ -114,10 +114,10 @@ struct SongPickView: View {
             }
             .buttonStyle(.plain)
         }
-        .padding(.top, 48) // Push down to avoid overlapping with window controls
+        .padding(.top, 56) // Push down to avoid overlapping with window controls
         .padding(.bottom, 32)
-        .padding(.horizontal, 16)
-        .frame(width: 220)
+        .padding(.horizontal, 20)
+        .frame(width: 250, alignment: .leading) // Set width to 250 and align leading
         .frame(maxHeight: .infinity)
         .background(Color.black.opacity(0.35))
         .overlay(
