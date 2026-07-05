@@ -195,6 +195,7 @@ struct SlotReelView: View {
                 // Curved Cylinder Background Asset (purple/red alternating)
                 Image((position % 2 == 0) ? "slot-purple" : "slot-red")
                     .resizable()
+                    .frame(width: 120, height: 280)
                 
                 // Vertical scrolling stack of Memoji heads
                 VStack(spacing: 0) {

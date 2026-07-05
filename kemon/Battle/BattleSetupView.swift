@@ -67,6 +67,7 @@ private struct SpaceCounterRow: View {
                             RoundedRectangle(cornerRadius: 6)
                                 .stroke(Color.white.opacity(0.3), lineWidth: 1.5)
                         )
+                        .contentShape(Rectangle()) // Make entire box clickable
                 }
                 .disabled(value <= range.lowerBound)
                 .opacity(value <= range.lowerBound ? 0.3 : 1.0)
@@ -88,6 +89,7 @@ private struct SpaceCounterRow: View {
                             RoundedRectangle(cornerRadius: 6)
                                 .stroke(Color.white.opacity(0.3), lineWidth: 1.5)
                         )
+                        .contentShape(Rectangle()) // Make entire box clickable
                 }
                 .disabled(value >= range.upperBound)
                 .opacity(value >= range.upperBound ? 0.3 : 1.0)
