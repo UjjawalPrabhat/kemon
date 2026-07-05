@@ -26,6 +26,7 @@ struct kemonApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .frame(minWidth: 960, idealWidth: 1200, maxWidth: .infinity, minHeight: 600, idealHeight: 800, maxHeight: .infinity)
         }
         .modelContainer(sharedModelContainer)
     }

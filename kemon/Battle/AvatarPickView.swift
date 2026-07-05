@@ -48,54 +48,54 @@ struct AvatarPickView: View {
             .padding(.horizontal, 16)
             
             // Subtitle & Avatar grid wrapped in a fixed-width container to force square cells and perfect alignment
-            VStack(spacing: 16) {
+            VStack(spacing: 18) {
                 HStack {
                     Text("CHOSEE YOUR AVATAR")
-                        .font(.orbitronBold(size: 14))
+                        .font(.orbitronBold(size: 15))
                         .foregroundStyle(.white.opacity(0.8))
                     
                     Spacer()
                     
                     Text("• P\(index + 1) SELECTING")
-                        .font(.poppinsBold(size: 11))
+                        .font(.poppinsBold(size: 12))
                         .foregroundStyle(Color(red: 0.4, green: 0.8, blue: 1.0))
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 4)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 5)
                         .background(
                             Capsule()
                                 .stroke(Color(red: 0.4, green: 0.8, blue: 1.0), lineWidth: 1.5)
                         )
                 }
                 
-                LazyVGrid(columns: Array(repeating: GridItem(.fixed(88), spacing: 18), count: 6), spacing: 18) {
+                LazyVGrid(columns: Array(repeating: GridItem(.fixed(108), spacing: 20), count: 6), spacing: 20) {
                     ForEach(Avatar.catalog) { avatar in
                         Button {
                             battle.setAvatar(avatar, for: index)
                         } label: {
                             ZStack {
-                                RoundedRectangle(cornerRadius: 16)
+                                RoundedRectangle(cornerRadius: 18)
                                     .fill(Color.white.opacity(0.06))
-                                    .frame(width: 88, height: 88)
+                                    .frame(width: 108, height: 108)
                                     .overlay(
-                                        RoundedRectangle(cornerRadius: 16)
+                                        RoundedRectangle(cornerRadius: 18)
                                             .stroke(
                                                 isAvatarSelectedForCurrentPlayer(avatar) ? Color(red: 0.4, green: 0.8, blue: 1.0) : Color.white.opacity(0.12),
-                                                lineWidth: isAvatarSelectedForCurrentPlayer(avatar) ? 2 : 1
+                                                lineWidth: isAvatarSelectedForCurrentPlayer(avatar) ? 2.5 : 1
                                             )
-                                            .shadow(color: Color(red: 0.4, green: 0.8, blue: 1.0), radius: isAvatarSelectedForCurrentPlayer(avatar) ? 6 : 0)
+                                            .shadow(color: Color(red: 0.4, green: 0.8, blue: 1.0), radius: isAvatarSelectedForCurrentPlayer(avatar) ? 8 : 0)
                                     )
                                 
                                 Image(avatar.imageName)
                                     .resizable()
                                     .scaledToFit()
-                                    .frame(width: 62, height: 62)
+                                    .frame(width: 78, height: 78)
                             }
                         }
                         .buttonStyle(.plain)
                     }
                 }
             }
-            .frame(maxWidth: 618)
+            .frame(maxWidth: 748)
             
             Spacer()
             
