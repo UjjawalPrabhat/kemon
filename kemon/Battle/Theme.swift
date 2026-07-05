@@ -29,11 +29,12 @@ enum UFOStyle {
 extension View {
     /// Overlays a view onto the custom starry space background.
     func kemonPage(showPlanet: Bool = true, showMoon: Bool = false, showCockpit: Bool = false, ufoStyle: UFOStyle = .purpleRed) -> some View {
-        ZStack {
-            SpaceBackgroundView(showPlanet: showPlanet, showMoon: showMoon, showCockpit: showCockpit, ufoStyle: ufoStyle)
-            self
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        self
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(
+                SpaceBackgroundView(showPlanet: showPlanet, showMoon: showMoon, showCockpit: showCockpit, ufoStyle: ufoStyle)
+                    .ignoresSafeArea()
+            )
     }
     
     /// Neon glow text effect
