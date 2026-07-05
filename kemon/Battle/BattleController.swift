@@ -48,10 +48,22 @@ struct Player: Identifiable {
     var scores: [Int] = []
 
     var total: Int { scores.reduce(0, +) }
+    /// Mean score across the turns taken (0 if none yet), rounded to a whole
+    /// number — the 0–100 figure the results and finale screens display.
+    var average: Int {
+        scores.isEmpty ? 0 : Int((Double(total) / Double(scores.count)).rounded())
+    }
     /// A display name that's never empty.
     var displayName: String {
         name.trimmingCharacters(in: .whitespaces).isEmpty ? "Singer" : name
     }
+}
+
+/// One performance's score, broken down by the metrics the results screen shows.
+struct TurnResult {
+    let overall: Int
+    let pitch: Int
+    let facialExpression: Int
 }
 
 // MARK: - Controller
@@ -61,7 +73,7 @@ struct Player: Identifiable {
 final class BattleController {
 
     enum Screen {
-        case home, setup, avatars, order, roundIntro, songPick, performing, winners
+        case home, setup, avatars, order, roundIntro, songPick, performing, result, winners
     }
 
     private(set) var screen: Screen = .home
@@ -81,6 +93,9 @@ final class BattleController {
     /// The song chosen for the turn in progress.
     private(set) var selectedSong: Song?
 
+    /// The breakdown for the turn just finished, shown on the results screen.
+    private(set) var lastTurnResult = TurnResult(overall: 0, pitch: 0, facialExpression: 0)
+
     // MARK: Derived
 
     /// The player whose turn it is right now.
@@ -92,15 +107,26 @@ final class BattleController {
     /// True on the first turn of a round (drives the "sing first" wording).
     var isFirstTurnOfRound: Bool { turnIndex == 0 }
 
-    /// Winner(s): everyone tied for the highest total. Usually one player.
-    var winners: [Player] {
-        guard let top = players.map(\.total).max() else { return [] }
-        return players.filter { $0.total == top }
+    /// Whoever sings after the results screen for the current turn is dismissed.
+    /// `nil` when the turn that just finished was the battle's last.
+    var upcomingPlayer: Player? {
+        let nextInRound = turnIndex + 1
+        if order.indices.contains(nextInRound) {
+            return players[order[nextInRound]]
+        }
+        guard currentRound < roundCount, order.indices.contains(0) else { return nil }
+        return players[order[0]]
     }
 
-    /// Players sorted best-first, for the results podium/leaderboard.
+    /// Winner(s): everyone tied for the highest average. Usually one player.
+    var winners: [Player] {
+        guard let top = players.map(\.average).max() else { return [] }
+        return players.filter { $0.average == top }
+    }
+
+    /// Players sorted best-first (by average score), for the finale leaderboard.
     var leaderboard: [Player] {
-        players.sorted { $0.total > $1.total }
+        players.sorted { $0.average > $1.average }
     }
 
     // MARK: - Navigation / actions
@@ -163,14 +189,20 @@ final class BattleController {
         screen = .performing
     }
 
-    /// Records the finished turn's score and advances to the next turn, next
-    /// round, or the winners screen.
-    func finishTurn(score: Int) {
+    /// Records the finished turn's score and shows the fullscreen results
+    /// screen (breakdown + "up next" countdown) before advancing.
+    func showResult(_ result: TurnResult) {
         if order.indices.contains(turnIndex) {
-            players[order[turnIndex]].scores.append(score)
+            players[order[turnIndex]].scores.append(result.overall)
         }
+        lastTurnResult = result
         selectedSong = nil
+        screen = .result
+    }
 
+    /// Leaves the results screen and advances to the next turn, next round,
+    /// or the winners screen.
+    func advanceFromResult() {
         turnIndex += 1
         if turnIndex >= order.count {
             turnIndex = 0
@@ -180,6 +212,17 @@ final class BattleController {
                 return
             }
         }
+        screen = .roundIntro
+    }
+
+    /// Replays a fresh battle with the same players/avatars: clears scores and
+    /// restarts from round 1. Backs the "Start New Round" button on the finale.
+    func startNewRound() {
+        for i in players.indices { players[i].scores = [] }
+        order = Array(0..<players.count)
+        currentRound = 1
+        turnIndex = 0
+        selectedSong = nil
         screen = .roundIntro
     }
 

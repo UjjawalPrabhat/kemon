@@ -40,8 +40,8 @@ struct ContentView: View {
                     song: song,
                     playerName: battle.currentPlayer?.displayName ?? "",
                     avatarImageName: battle.currentPlayer?.avatar?.imageName ?? ""
-                ) { score in
-                    battle.finishTurn(score: score)
+                ) { result in
+                    battle.showResult(result)
                 }
                 // Fresh KemonEngine per turn (new round/turn ⇒ new identity).
                 .id("\(battle.currentRound)-\(battle.turnIndex)")
@@ -50,6 +50,8 @@ struct ContentView: View {
                 Color.kemonCream.ignoresSafeArea()
                     .onAppear { battle.beginTurn() }
             }
+        case .result:
+            ResultView(battle: battle)
         case .winners:
             WinnersView(battle: battle)
         }

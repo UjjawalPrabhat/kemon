@@ -16,12 +16,14 @@ struct PerformanceView: View {
     var playerName: String = ""
     /// Avatar image name for the current player.
     var avatarImageName: String = ""
-    /// Called with the final 0–100 overall score when the singer taps Continue.
-    var onFinish: (Int) -> Void = { _ in }
+    /// Called with the final score breakdown when the singer taps Continue.
+    var onFinish: (TurnResult) -> Void = { _ in }
 
     @State private var engine = KemonEngine()
     @State private var showRomanized = false
     @State private var showVolumePanel = false
+    /// Guards against firing `onFinish` more than once as the engine finalizes.
+    @State private var didFinish = false
 
     /// True while the engine is still preparing (camera, mic, audio).
     private var isLoading: Bool {
@@ -39,17 +41,20 @@ struct PerformanceView: View {
                 loadingOverlay
                     .transition(.opacity)
             }
-
-            // Result card overlay
-            if let summary = engine.finalSummary {
-                resultCard(summary)
-                    .transition(.scale.combined(with: .opacity))
-            }
         }
         .animation(.easeInOut(duration: 0.6), value: isLoading)
-        .animation(.spring(duration: 0.5), value: engine.finalSummary != nil)
         .onAppear { engine.start(song: song) }
         .onDisappear { engine.stop() }
+        // Finishing hands off to the fullscreen results screen — no in-place modal.
+        .onChange(of: engine.finalSummary) { _, summary in
+            guard summary != nil, !didFinish else { return }
+            didFinish = true
+            onFinish(TurnResult(
+                overall: engine.overallScore,
+                pitch: engine.voiceScore.inTuneness ?? 0,
+                facialExpression: engine.score.normalizedScore
+            ))
+        }
     }
 
     // MARK: - Loading Overlay
@@ -508,62 +513,6 @@ struct PerformanceView: View {
                     .font(.system(size: size * 0.3))
                     .foregroundStyle(.white.opacity(0.8))
             }
-    }
-
-    // MARK: - Result Card
-
-    private func resultCard(_ summary: String) -> some View {
-        VStack(spacing: 24) {
-            Image(systemName: "sparkles")
-                .font(.system(size: 48))
-                .foregroundStyle(.yellow)
-                .meloGlowText(color: .yellow)
-
-            Text(summary)
-                .font(.poppinsBold(size: 18))
-                .foregroundStyle(.white)
-                .multilineTextAlignment(.center)
-
-            Text("\(engine.overallScore)")
-                .font(.orbitronBlack(size: 64))
-                .foregroundStyle(.white)
-                .meloGlowText()
-
-            scoreBreakdown
-
-            KemonPrimaryButton(title: "Continue", systemImage: "arrow.right") {
-                onFinish(engine.overallScore)
-            }
-        }
-        .padding(36)
-        .frame(maxWidth: 400)
-        .kemonGlassCard(24)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.black.opacity(0.6))
-    }
-
-    // MARK: - Score Breakdown
-
-    private var scoreBreakdown: some View {
-        HStack(spacing: 20) {
-            metric("Vibe", engine.score.normalizedScore)
-            if let voice = engine.voiceScore.normalizedScore {
-                metric("Voice", voice)
-                if let pitch = engine.voiceScore.inTuneness { metric("Pitch", pitch) }
-                if let timing = engine.voiceScore.timing { metric("Timing", timing) }
-            }
-        }
-    }
-
-    private func metric(_ label: String, _ value: Int) -> some View {
-        VStack(spacing: 4) {
-            Text("\(value)")
-                .font(.orbitronBold(size: 18))
-                .foregroundStyle(.white)
-            Text(label)
-                .font(.poppinsMedium(size: 11))
-                .foregroundStyle(.white.opacity(0.5))
-        }
     }
 
     // MARK: - Lyric Helpers
