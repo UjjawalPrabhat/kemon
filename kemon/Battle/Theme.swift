@@ -841,7 +841,7 @@ struct KemonGlassButton: View {
 // MARK: - Avatar Bubble
 
 struct AvatarBubble: View {
-    let avatar: Avatar
+    let avatar: Avatar?
     var size: CGFloat = 96
     var isSelected: Bool = false
 
@@ -854,8 +854,18 @@ struct AvatarBubble: View {
                         .stroke(Color.white.opacity(0.15), lineWidth: 1)
                 )
             
-            Text(avatar.emoji)
-                .font(.system(size: size * 0.55))
+            if let avatar {
+                Image(avatar.imageName)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: size * 0.72, height: size * 0.72)
+            } else {
+                Image("avatar-placeholder")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: size * 0.72, height: size * 0.72)
+                    .opacity(0.4)
+            }
         }
         .frame(width: size, height: size)
         .overlay {

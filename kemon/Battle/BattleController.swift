@@ -19,21 +19,22 @@ import Observation
 /// asset name later to use real character/Memoji art.
 struct Avatar: Identifiable, Equatable {
     let id: Int
+    let imageName: String
     let emoji: String
 
     static let catalog: [Avatar] = [
-        Avatar(id: 0, emoji: "😲"),
-        Avatar(id: 1, emoji: "😜"),
-        Avatar(id: 2, emoji: "👩"),
-        Avatar(id: 3, emoji: "😅"),
-        Avatar(id: 4, emoji: "😍"),
-        Avatar(id: 5, emoji: "👦"),
-        Avatar(id: 6, emoji: "🙋‍♂️"),
-        Avatar(id: 7, emoji: "🧑‍🦱"),
-        Avatar(id: 8, emoji: "🤯"),
-        Avatar(id: 9, emoji: "🙌"),
-        Avatar(id: 10, emoji: "👵"),
-        Avatar(id: 11, emoji: "👧")
+        Avatar(id: 0, imageName: "memoji-1", emoji: "😲"),
+        Avatar(id: 1, imageName: "memoji-2", emoji: "😜"),
+        Avatar(id: 2, imageName: "memoji-3", emoji: "👩"),
+        Avatar(id: 3, imageName: "memoji-4", emoji: "😅"),
+        Avatar(id: 4, imageName: "memoji-5", emoji: "😍"),
+        Avatar(id: 5, imageName: "memoji-6", emoji: "👦"),
+        Avatar(id: 6, imageName: "memoji-7", emoji: "🙋‍♂️"),
+        Avatar(id: 7, imageName: "memoji-8", emoji: "🧑‍🦱"),
+        Avatar(id: 8, imageName: "memoji-9", emoji: "🤯"),
+        Avatar(id: 9, imageName: "memoji-10", emoji: "🙌"),
+        Avatar(id: 10, imageName: "memoji-11", emoji: "👵"),
+        Avatar(id: 11, imageName: "memoji-12", emoji: "👧")
     ]
 }
 
@@ -42,7 +43,7 @@ struct Avatar: Identifiable, Equatable {
 struct Player: Identifiable {
     let id = UUID()
     var name: String
-    var avatar: Avatar
+    var avatar: Avatar? // Made optional for placeholder state
     /// One score per turn taken (index = round - 1).
     var scores: [Int] = []
 
@@ -112,8 +113,8 @@ final class BattleController {
     /// Commits the player/round counts and creates blank players, then moves to
     /// avatar selection.
     func confirmSetup() {
-        players = (0..<playerCount).map { i in
-            Player(name: "PLAYER \(i + 1)", avatar: Avatar.catalog[i % Avatar.catalog.count])
+        players = (0..<playerCount).map { _ in
+            Player(name: "", avatar: nil)
         }
         order = Array(0..<playerCount)
         screen = .avatars
@@ -131,7 +132,17 @@ final class BattleController {
     }
 
     /// Avatar selection complete → turn-order screen.
-    func confirmPlayers() { screen = .order }
+    func confirmPlayers() {
+        for i in 0..<players.count {
+            if players[i].name.trimmingCharacters(in: .whitespaces).isEmpty {
+                players[i].name = "PLAYER \(i + 1)"
+            }
+            if players[i].avatar == nil {
+                players[i].avatar = Avatar.catalog[i % Avatar.catalog.count]
+            }
+        }
+        screen = .order
+    }
 
     /// Shuffles the singing order.
     func randomizeOrder() { order.shuffle() }

@@ -63,10 +63,22 @@ struct WinnersView: View {
                                     .foregroundStyle(.white.opacity(0.5))
                                     .frame(width: 24, alignment: .leading)
                                 
-                                Text(player.avatar.emoji)
-                                    .font(.system(size: 24))
-                                    .frame(width: 36, height: 36)
-                                    .background(Circle().fill(Color.white.opacity(0.1)))
+                                if let imageName = player.avatar?.imageName {
+                                    Image(imageName)
+                                        .resizable()
+                                        .scaledToFit()
+                                        .frame(width: 28, height: 28)
+                                        .frame(width: 36, height: 36)
+                                        .background(Circle().fill(Color.white.opacity(0.1)))
+                                } else {
+                                    Image("avatar-placeholder")
+                                        .resizable()
+                                        .scaledToFit()
+                                        .frame(width: 28, height: 28)
+                                        .frame(width: 36, height: 36)
+                                        .background(Circle().fill(Color.white.opacity(0.1)))
+                                        .opacity(0.4)
+                                }
                                 
                                 Text(player.displayName)
                                     .font(.poppinsBold(size: 15))
@@ -112,11 +124,24 @@ struct PodiumSlotView: View {
                 Spacer().frame(height: 10)
                 
                 // Avatar emoji
-                Text(player.avatar.emoji)
-                    .font(.system(size: 40))
-                    .frame(width: 68, height: 68)
-                    .background(Circle().fill(Color.white.opacity(0.1)))
-                    .overlay(Circle().stroke(Color.white.opacity(0.2), lineWidth: 1))
+                if let imageName = player.avatar?.imageName {
+                    Image(imageName)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 52, height: 52)
+                        .frame(width: 68, height: 68)
+                        .background(Circle().fill(Color.white.opacity(0.1)))
+                        .overlay(Circle().stroke(Color.white.opacity(0.2), lineWidth: 1))
+                } else {
+                    Image("avatar-placeholder")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 52, height: 52)
+                        .frame(width: 68, height: 68)
+                        .background(Circle().fill(Color.white.opacity(0.1)))
+                        .overlay(Circle().stroke(Color.white.opacity(0.2), lineWidth: 1))
+                        .opacity(0.4)
+                }
                 
                 Text(player.displayName)
                     .font(.poppinsBold(size: 13))
