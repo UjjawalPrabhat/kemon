@@ -15,30 +15,25 @@ struct BattleSetupView: View {
         VStack(spacing: 44) {
             // Screen Title
             Text("Ready to Battle ?")
-                .font(.orbitronBold(size: 48))
+                .font(.orbitronBlack(size: 48))
                 .foregroundStyle(.white)
                 .meloGlowText()
             
-            // Stepper controls inside a sleek glass card
-            VStack(spacing: 28) {
+            // Stepper controls laid out directly on the page background matching the mockup
+            VStack(spacing: 32) {
                 SpaceCounterRow(title: "Numbers of Singers", value: $battle.playerCount, range: 2...5)
-                
-                Divider()
-                    .background(Color.white.opacity(0.2))
-                
                 SpaceCounterRow(title: "How many rounds", value: $battle.roundCount, range: 1...5)
             }
-            .padding(32)
-            .frame(maxWidth: 460)
-            .kemonGlassCard(24)
+            .frame(maxWidth: 580)
+            .padding(.horizontal, 40)
             
-            // Next button
-            KemonPrimaryButton(title: "NEXT", systemImage: "arrow.right") {
+            // Next button (no icon, Poppins-Black font loaded from KemonPrimaryButton)
+            KemonPrimaryButton(title: "NEXT") {
                 battle.confirmSetup()
             }
         }
         .foregroundStyle(Color.kemonInk)
-        .kemonPage(showPlanet: true, showCockpit: false, ufoColors: [.green, .yellow])
+        .kemonPage(showPlanet: false, showMoon: true, showCockpit: false, ufoStyle: .greenYellow)
         .overlay(alignment: .topLeading) {
             BackButton { battle.goHome() }
         }
@@ -54,7 +49,7 @@ private struct SpaceCounterRow: View {
     var body: some View {
         HStack {
             Text(title)
-                .font(.poppinsBold(size: 20))
+                .font(.orbitronRegular(size: 24))
                 .foregroundStyle(.white)
             
             Spacer()
@@ -77,7 +72,7 @@ private struct SpaceCounterRow: View {
                 .opacity(value <= range.lowerBound ? 0.3 : 1.0)
                 
                 Text("\(value)")
-                    .font(.poppinsBold(size: 24))
+                    .font(.orbitronRegular(size: 26))
                     .foregroundStyle(.white)
                     .frame(minWidth: 32)
                 
@@ -99,7 +94,7 @@ private struct SpaceCounterRow: View {
             }
             .buttonStyle(.plain)
         }
-        .padding(.vertical, 8)
+        .padding(.vertical, 12)
     }
 }
 

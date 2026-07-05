@@ -268,7 +268,7 @@
 				INFOPLIST_KEY_NSAppleMusicUsageDescription = "Kemon plays Apple Music songs you choose as karaoke backing tracks.";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Kemon uses the front camera to read your expressions and score how well they match the song's vibe.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Kemon listens to your singing to score your pitch, timing, and dynamics.";
-				INFOPLIST_KEY_UIAppFonts = "Poppins-Medium.ttf Poppins-Bold.ttf Orbitron-Bold.ttf Poppins-Black.ttf";
+				INFOPLIST_KEY_UIAppFonts = "Poppins-Medium.ttf Poppins-Bold.ttf Orbitron-Bold.ttf Poppins-Black.ttf Orbitron-Black.ttf Orbitron-Regular.ttf";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -309,7 +309,7 @@
 				INFOPLIST_KEY_NSAppleMusicUsageDescription = "Kemon plays Apple Music songs you choose as karaoke backing tracks.";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Kemon uses the front camera to read your expressions and score how well they match the song's vibe.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Kemon listens to your singing to score your pitch, timing, and dynamics.";
-				INFOPLIST_KEY_UIAppFonts = "Poppins-Medium.ttf Poppins-Bold.ttf Orbitron-Bold.ttf Poppins-Black.ttf";
+				INFOPLIST_KEY_UIAppFonts = "Poppins-Medium.ttf Poppins-Bold.ttf Orbitron-Bold.ttf Poppins-Black.ttf Orbitron-Black.ttf Orbitron-Regular.ttf";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

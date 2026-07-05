@@ -18,7 +18,7 @@ struct AvatarPickView: View {
         VStack(spacing: 24) {
             // Screen Title
             Text("Karoeke Battle")
-                .font(.orbitronBold(size: 44))
+                .font(.orbitronBlack(size: 44))
                 .foregroundStyle(.white)
                 .meloGlowText()
             

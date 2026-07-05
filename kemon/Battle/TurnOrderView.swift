@@ -20,7 +20,7 @@ struct TurnOrderView: View {
             // Title Header
             VStack(spacing: 6) {
                 Text("MIC ROULETTE")
-                    .font(.orbitronBold(size: 40))
+                    .font(.orbitronBlack(size: 40))
                     .foregroundStyle(.white)
                     .meloGlowText()
                 

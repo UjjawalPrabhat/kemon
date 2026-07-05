@@ -20,7 +20,7 @@ struct WinnersView: View {
             // Title & Subtitle
             VStack(spacing: 6) {
                 Text("LEADERBOARD")
-                    .font(.orbitronBold(size: 40))
+                    .font(.orbitronBlack(size: 40))
                     .foregroundStyle(.white)
                     .meloGlowText()
                 

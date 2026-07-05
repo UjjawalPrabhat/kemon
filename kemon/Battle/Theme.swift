@@ -20,11 +20,17 @@ extension Color {
 
 // MARK: - Page scaffold
 
+enum UFOStyle {
+    case purpleRed
+    case greenYellow
+    case none
+}
+
 extension View {
     /// Overlays a view onto the custom starry space background.
-    func kemonPage(showPlanet: Bool = true, showCockpit: Bool = false, ufoColors: [Color] = [.purple, .pink]) -> some View {
+    func kemonPage(showPlanet: Bool = true, showMoon: Bool = false, showCockpit: Bool = false, ufoStyle: UFOStyle = .purpleRed) -> some View {
         ZStack {
-            SpaceBackgroundView(showPlanet: showPlanet, showCockpit: showCockpit)
+            SpaceBackgroundView(showPlanet: showPlanet, showMoon: showMoon, showCockpit: showCockpit, ufoStyle: ufoStyle)
             self
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -42,7 +48,9 @@ extension View {
 
 struct SpaceBackgroundView: View {
     let showPlanet: Bool
+    var showMoon: Bool = false
     let showCockpit: Bool
+    var ufoStyle: UFOStyle = .purpleRed
     
     var body: some View {
         ZStack {
@@ -77,27 +85,66 @@ struct SpaceBackgroundView: View {
                 .ignoresSafeArea()
             }
             
-            // 5. Floating UFO Purple (Top-Left window quadrant)
-            VStack {
-                HStack {
-                    FloatingUFOView(name: "ufo-purple", size: 160)
-                        .offset(x: 50, y: 110)
+            // 5. Static Moon (Bottom centered curved surface)
+            if showMoon {
+                VStack {
                     Spacer()
+                    Image("moon")
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(height: 180)
                 }
-                Spacer()
+                .ignoresSafeArea()
             }
-            .ignoresSafeArea()
             
-            // 6. Floating UFO Red (Bottom-Right window quadrant)
-            VStack {
-                Spacer()
-                HStack {
+            // 6. UFO overlays
+            if ufoStyle == .purpleRed {
+                // Floating UFO Purple (Top-Left window quadrant)
+                VStack {
+                    HStack {
+                        FloatingUFOView(name: "ufo-purple", size: 160)
+                            .offset(x: 50, y: 110)
+                        Spacer()
+                    }
                     Spacer()
-                    FloatingUFOView(name: "ufo-red", size: 220)
-                        .offset(x: -60, y: -120)
                 }
+                .ignoresSafeArea()
+                
+                // Floating UFO Red (Bottom-Right window quadrant)
+                VStack {
+                    Spacer()
+                    HStack {
+                        Spacer()
+                        FloatingUFOView(name: "ufo-red", size: 220)
+                            .offset(x: -60, y: -120)
+                    }
+                }
+                .ignoresSafeArea()
+            } else if ufoStyle == .greenYellow {
+                // Floating UFO Green (Bottom-Left window quadrant)
+                VStack {
+                    Spacer()
+                    HStack {
+                        FloatingUFOView(name: "ufo-green", size: 220)
+                            .rotationEffect(.degrees(15))
+                            .offset(x: 100, y: -60)
+                        Spacer()
+                    }
+                }
+                .ignoresSafeArea()
+                
+                // Floating UFO Yellow (Bottom-Right near the moon)
+                VStack {
+                    Spacer()
+                    HStack {
+                        Spacer()
+                        FloatingUFOView(name: "ufo-yellow", size: 160)
+                            .rotationEffect(.degrees(-15))
+                            .offset(x: -100, y: -60)
+                    }
+                }
+                .ignoresSafeArea()
             }
-            .ignoresSafeArea()
             
             // 7. Space Deck / Cockpit Frame Overlay
             if showCockpit {
@@ -114,6 +161,76 @@ struct SpaceBackgroundView: View {
                         .offset(y: 10)
                 }
                 .ignoresSafeArea()
+            }
+        }
+    }
+}
+
+struct MoonCrater: Identifiable {
+    let id = UUID()
+    let size: CGFloat
+    let y: CGFloat
+    let speed: Double
+    let initialX: CGFloat
+}
+
+struct SpinningMoonView: View {
+    // A list of crater shapes distributed horizontally and vertically
+    private let craters = [
+        MoonCrater(size: 38, y: 35, speed: 35, initialX: -400),
+        MoonCrater(size: 55, y: 70, speed: 40, initialX: -200),
+        MoonCrater(size: 30, y: 10, speed: 30, initialX: -100),
+        MoonCrater(size: 45, y: 60, speed: 38, initialX: 0),
+        MoonCrater(size: 65, y: 20, speed: 42, initialX: 150),
+        MoonCrater(size: 35, y: 80, speed: 34, initialX: 300),
+        MoonCrater(size: 50, y: -5, speed: 37, initialX: 450),
+        MoonCrater(size: 26, y: 50, speed: 32, initialX: -300),
+        MoonCrater(size: 60, y: 25, speed: 41, initialX: -50),
+        MoonCrater(size: 42, y: 65, speed: 36, initialX: 220),
+        MoonCrater(size: 34, y: 15, speed: 33, initialX: 380),
+        MoonCrater(size: 48, y: 75, speed: 39, initialX: -150)
+    ]
+
+    var body: some View {
+        TimelineView(.animation) { timelineContext in
+            let time = timelineContext.date.timeIntervalSinceReferenceDate
+            GeometryReader { geo in
+                let width = geo.size.width
+                ZStack {
+                    // The base blank moon surface
+                    Image("moon-blank")
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(width: width, height: 180)
+                        
+                    // Masked sliding craters
+                    ZStack {
+                        ForEach(craters) { crater in
+                            let totalDistance = width + 200
+                            let currentOffset = crater.initialX - CGFloat(time * crater.speed)
+                            
+                            // Modulo wrapping math:
+                            let rawWrappedX = currentOffset.truncatingRemainder(dividingBy: totalDistance)
+                            let wrappedX = rawWrappedX + (currentOffset < 0 ? totalDistance : 0) - 100
+                            
+                            // 3D sphere projection mapping (craters contract near horizons)
+                            let distanceFromCenter = wrappedX - (width / 2)
+                            let ratio = distanceFromCenter / (width / 2)
+                            let scaleFactor = max(0.1, sqrt(max(0.0, 1.0 - ratio * ratio)))
+                            
+                            Circle()
+                                .fill(Color(red: 0.08, green: 0.05, blue: 0.25).opacity(0.85)) // Dark crater shade
+                                .frame(width: crater.size * scaleFactor, height: crater.size * scaleFactor)
+                                .offset(x: wrappedX - (width / 2), y: crater.y)
+                        }
+                    }
+                    .mask {
+                        Image("moon-blank")
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .frame(width: width, height: 180)
+                    }
+                }
             }
         }
     }
@@ -249,10 +366,10 @@ struct FloatingUFOView: View {
             .scaledToFit()
             .frame(width: size, height: size)
             .rotationEffect(.degrees(rotation))
-            .offset(y: floatOffset)
+            .offset(x: floatOffset)
             .onAppear {
                 withAnimation(.easeInOut(duration: 4.8).repeatForever(autoreverses: true)) {
-                    floatOffset = 12
+                    floatOffset = 18
                 }
                 withAnimation(.easeInOut(duration: 6.5).repeatForever(autoreverses: true)) {
                     rotation = 6
@@ -754,6 +871,12 @@ struct AvatarBubble: View {
 // MARK: - Custom Font Extensions
 
 extension Font {
+    static func orbitronRegular(size: CGFloat) -> Font {
+        .custom("Orbitron-Regular", size: size)
+    }
+    static func orbitronBlack(size: CGFloat) -> Font {
+        .custom("Orbitron-Black", size: size)
+    }
     static func poppinsBlack(size: CGFloat) -> Font {
         .custom("Poppins-Black", size: size)
     }
