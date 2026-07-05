@@ -36,10 +36,10 @@ struct SongPickView: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            // Left Navigation Sidebar
+            // Left Navigation Sidebar (pinned fixed width)
             sidebarView
             
-            // Right Main Content View
+            // Right Main Content View (fully scrollable, width-restricted)
             mainContentView
         }
         .foregroundStyle(.white)
@@ -60,6 +60,7 @@ struct SongPickView: View {
                 .foregroundStyle(Color(red: 0.4, green: 0.8, blue: 1.0))
                 .meloGlowText()
                 .padding(.bottom, 12)
+                .padding(.leading, 12)
             
             // Browse Tab section
             VStack(alignment: .leading, spacing: 14) {
@@ -149,64 +150,68 @@ struct SongPickView: View {
 
     // MARK: - Main Content Area
     private var mainContentView: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            // Top utility header
-            HStack(alignment: .center) {
-                if let currentPlayer = battle.currentPlayer {
-                    Text("• \(currentPlayer.displayName.uppercased()) SELECTING")
-                        .font(.poppinsBold(size: 12))
-                        .foregroundStyle(Color(red: 0.4, green: 0.8, blue: 1.0))
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 5)
-                        .background(
-                            Capsule()
-                                .stroke(Color(red: 0.4, green: 0.8, blue: 1.0), lineWidth: 1.5)
-                        )
-                        .meloGlowText()
+        ScrollView(.vertical, showsIndicators: false) {
+            VStack(alignment: .leading, spacing: 20) {
+                // Top utility header
+                HStack(alignment: .center) {
+                    if let currentPlayer = battle.currentPlayer {
+                        Text("• \(currentPlayer.displayName.uppercased()) SELECTING")
+                            .font(.poppinsBold(size: 12))
+                            .foregroundStyle(Color(red: 0.4, green: 0.8, blue: 1.0))
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 5)
+                            .background(
+                                Capsule()
+                                    .stroke(Color(red: 0.4, green: 0.8, blue: 1.0), lineWidth: 1.5)
+                            )
+                            .meloGlowText()
+                    }
+                    
+                    Spacer()
+                    
+                    // Sleek Search bar
+                    HStack(spacing: 8) {
+                        Image(systemName: "magnifyingglass")
+                            .foregroundStyle(.white.opacity(0.4))
+                        TextField("Search artist, title, album...", text: $search)
+                            .textFieldStyle(.plain)
+                            .foregroundStyle(.white)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .frame(width: 260)
+                    .background(Color.white.opacity(0.06))
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                    )
                 }
+                .padding(.top, 28)
+                .padding(.horizontal, 32)
                 
-                Spacer()
-                
-                // Sleek Search bar
-                HStack(spacing: 8) {
-                    Image(systemName: "magnifyingglass")
-                        .foregroundStyle(.white.opacity(0.4))
-                    TextField("Search artist, title, album...", text: $search)
-                        .textFieldStyle(.plain)
-                        .foregroundStyle(.white)
-                }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .frame(width: 260)
-                .background(Color.white.opacity(0.06))
-                .clipShape(RoundedRectangle(cornerRadius: 10))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 10)
-                        .stroke(Color.white.opacity(0.12), lineWidth: 1)
-                )
-            }
-            .padding(.top, 28)
-            .padding(.horizontal, 32)
-            
-            // Content Switcher
-            if !search.isEmpty {
-                searchResultsView
-            } else {
-                switch activeTab {
-                case .discover:
-                    discoverView
-                case .genre:
-                    genreView
-                case .topCharts:
-                    topChartsView
-                case .favourites:
-                    favouritesView
-                case .addSong:
-                    addSongView
+                // Content Switcher
+                if !search.isEmpty {
+                    searchResultsView
+                } else {
+                    switch activeTab {
+                    case .discover:
+                        discoverView
+                    case .genre:
+                        genreView
+                    case .topCharts:
+                        topChartsView
+                    case .favourites:
+                        favouritesView
+                    case .addSong:
+                        addSongView
+                    }
                 }
             }
+            .frame(maxWidth: 820)
+            .padding(.bottom, 32)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
     }
 
     // MARK: - Discover Dashboard View
@@ -474,14 +479,11 @@ struct SongPickView: View {
                     .foregroundStyle(.white.opacity(0.5))
                     .padding(.top, 10)
             } else {
-                ScrollView {
-                    VStack(spacing: 8) {
-                        ForEach(Array(filtered.enumerated()), id: \.element.id) { index, song in
-                            recommendationRow(index: index, song: song)
-                        }
+                VStack(spacing: 8) {
+                    ForEach(Array(filtered.enumerated()), id: \.element.id) { index, song in
+                        recommendationRow(index: index, song: song)
                     }
                 }
-                .frame(maxHeight: 380)
             }
         }
         .padding(.horizontal, 32)
@@ -494,14 +496,11 @@ struct SongPickView: View {
                 .font(.orbitronBold(size: 14))
                 .foregroundStyle(.white.opacity(0.5))
             
-            ScrollView {
-                VStack(spacing: 8) {
-                    ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
-                        recommendationRow(index: index, song: song)
-                    }
+            VStack(spacing: 8) {
+                ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
+                    recommendationRow(index: index, song: song)
                 }
             }
-            .frame(maxHeight: 460)
         }
         .padding(.horizontal, 32)
     }
@@ -512,14 +511,11 @@ struct SongPickView: View {
                 .font(.orbitronBold(size: 14))
                 .foregroundStyle(.white.opacity(0.5))
             
-            ScrollView {
-                VStack(spacing: 8) {
-                    ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
-                        recommendationRow(index: index, song: song)
-                    }
+            VStack(spacing: 8) {
+                ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
+                    recommendationRow(index: index, song: song)
                 }
             }
-            .frame(maxHeight: 460)
         }
         .padding(.horizontal, 32)
     }
@@ -530,14 +526,11 @@ struct SongPickView: View {
                 .font(.orbitronBold(size: 14))
                 .foregroundStyle(.white.opacity(0.5))
             
-            ScrollView {
-                VStack(spacing: 8) {
-                    ForEach(Array(songs.prefix(3).enumerated()), id: \.element.id) { index, song in
-                        recommendationRow(index: index, song: song)
-                    }
+            VStack(spacing: 8) {
+                ForEach(Array(songs.prefix(3).enumerated()), id: \.element.id) { index, song in
+                    recommendationRow(index: index, song: song)
                 }
             }
-            .frame(maxHeight: 460)
         }
         .padding(.horizontal, 32)
     }

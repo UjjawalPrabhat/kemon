@@ -33,9 +33,6 @@ struct AppleMusicSearchView: View {
                 content
             }
             .padding(20)
-            #if os(macOS)
-            .frame(minWidth: 420, minHeight: 520)
-            #endif
             .kemonPage(showPlanet: false, showCockpit: false)
             .navigationTitle("Apple Music")
             .toolbar {
@@ -46,6 +43,9 @@ struct AppleMusicSearchView: View {
             }
         }
         .preferredColorScheme(.dark) // Force dark mode so all text is visible on the space theme
+        #if os(macOS)
+        .frame(width: 600, height: 680)
+        #endif
         .task { await requestAuthorizationIfNeeded() }
     }
 
@@ -82,8 +82,8 @@ struct AppleMusicSearchView: View {
     // MARK: - Content states
 
     @ViewBuilder
-    private var content: some View {
-        switch authorization {
+    private func content(for auth: MusicAuthorization.Status) -> some View {
+        switch auth {
         case .authorized:
             if let errorText {
                 errorState(errorText)
@@ -100,6 +100,11 @@ struct AppleMusicSearchView: View {
         default:
             unavailable
         }
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        content(for: authorization)
     }
 
     private var resultList: some View {
