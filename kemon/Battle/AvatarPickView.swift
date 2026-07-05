@@ -47,56 +47,55 @@ struct AvatarPickView: View {
             }
             .padding(.horizontal, 16)
             
-            // Subtitle: CHOSEE YOUR AVATAR & Selecting Pill
-            HStack {
-                Text("CHOSEE YOUR AVATAR")
-                    .font(.orbitronBold(size: 14))
-                    .foregroundStyle(.white.opacity(0.8))
+            // Subtitle & Avatar grid wrapped in a fixed-width container to force square cells and perfect alignment
+            VStack(spacing: 16) {
+                HStack {
+                    Text("CHOSEE YOUR AVATAR")
+                        .font(.orbitronBold(size: 14))
+                        .foregroundStyle(.white.opacity(0.8))
+                    
+                    Spacer()
+                    
+                    Text("• P\(index + 1) SELECTING")
+                        .font(.poppinsBold(size: 11))
+                        .foregroundStyle(Color(red: 0.4, green: 0.8, blue: 1.0))
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 4)
+                        .background(
+                            Capsule()
+                                .stroke(Color(red: 0.4, green: 0.8, blue: 1.0), lineWidth: 1.5)
+                        )
+                }
                 
-                Spacer()
-                
-                Text("• P\(index + 1) SELECTING")
-                    .font(.poppinsBold(size: 11))
-                    .foregroundStyle(Color(red: 0.4, green: 0.8, blue: 1.0))
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 4)
-                    .background(
-                        Capsule()
-                            .stroke(Color(red: 0.4, green: 0.8, blue: 1.0), lineWidth: 1.5)
-                    )
-            }
-            .padding(.horizontal, 48)
-            .padding(.top, 12)
-            
-            // Avatar grid 2x6
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 18), count: 6), spacing: 18) {
-                ForEach(Avatar.catalog) { avatar in
-                    Button {
-                        battle.setAvatar(avatar, for: index)
-                    } label: {
-                        ZStack {
-                            RoundedRectangle(cornerRadius: 16)
-                                .fill(Color.white.opacity(0.06))
-                                .frame(height: 88)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 16)
-                                        .stroke(
-                                            isAvatarSelectedForCurrentPlayer(avatar) ? Color(red: 0.4, green: 0.8, blue: 1.0) : Color.white.opacity(0.12),
-                                            lineWidth: isAvatarSelectedForCurrentPlayer(avatar) ? 2 : 1
-                                        )
-                                        .shadow(color: Color(red: 0.4, green: 0.8, blue: 1.0), radius: isAvatarSelectedForCurrentPlayer(avatar) ? 6 : 0)
-                                )
-                            
-                            Image(avatar.imageName)
-                                .resizable()
-                                .scaledToFit()
-                                .frame(width: 62, height: 62)
+                LazyVGrid(columns: Array(repeating: GridItem(.fixed(88), spacing: 18), count: 6), spacing: 18) {
+                    ForEach(Avatar.catalog) { avatar in
+                        Button {
+                            battle.setAvatar(avatar, for: index)
+                        } label: {
+                            ZStack {
+                                RoundedRectangle(cornerRadius: 16)
+                                    .fill(Color.white.opacity(0.06))
+                                    .frame(width: 88, height: 88)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 16)
+                                            .stroke(
+                                                isAvatarSelectedForCurrentPlayer(avatar) ? Color(red: 0.4, green: 0.8, blue: 1.0) : Color.white.opacity(0.12),
+                                                lineWidth: isAvatarSelectedForCurrentPlayer(avatar) ? 2 : 1
+                                            )
+                                            .shadow(color: Color(red: 0.4, green: 0.8, blue: 1.0), radius: isAvatarSelectedForCurrentPlayer(avatar) ? 6 : 0)
+                                    )
+                                
+                                Image(avatar.imageName)
+                                    .resizable()
+                                    .scaledToFit()
+                                    .frame(width: 62, height: 62)
+                            }
                         }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                 }
             }
-            .padding(.horizontal, 48)
+            .frame(maxWidth: 618)
             
             Spacer()
             
