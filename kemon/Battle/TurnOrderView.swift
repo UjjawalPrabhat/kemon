@@ -191,11 +191,10 @@ struct SlotReelView: View {
     
     var body: some View {
         GeometryReader { geo in
-            ZStack {
+            ZStack(alignment: .top) {
                 // Curved Cylinder Background Asset (purple/red alternating)
                 Image((position % 2 == 0) ? "slot-purple" : "slot-red")
                     .resizable()
-                    .scaledToFill()
                 
                 // Vertical scrolling stack of Memoji heads
                 VStack(spacing: 0) {
@@ -228,24 +227,22 @@ struct SlotReelView: View {
                     }
                 }
                 .offset(y: scrollOffset)
-                
-                // Overlay cylinder shadow for 3D depth
-                LinearGradient(
-                    colors: [
-                        .black.opacity(0.75),
-                        .black.opacity(0.2),
-                        .clear,
-                        .clear,
-                        .black.opacity(0.2),
-                        .black.opacity(0.75)
-                    ],
-                    startPoint: .top, endPoint: .bottom
-                )
-                .allowsHitTesting(false)
             }
         }
         .frame(width: 120, height: 280)
         .clipShape(RoundedRectangle(cornerRadius: 24))
+        .mask(
+            LinearGradient(
+                gradient: Gradient(stops: [
+                    .init(color: .clear, location: 0.0),
+                    .init(color: .black, location: 0.15),
+                    .init(color: .black, location: 0.85),
+                    .init(color: .clear, location: 1.0)
+                ]),
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        )
         .onAppear {
             setupReel()
         }
