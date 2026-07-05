@@ -4,7 +4,7 @@
 //
 //  "Pick the song!" — the current singer chooses a track.
 //  Redesigned as a premium space dashboard with a sidebar and a Discover tab
-//  featuring the ufo-purple-jumbo asset ornament.
+//  featuring the ufo-purple-jumbo asset ornament and prominent Apple Music CTAs.
 //
 
 import SwiftUI
@@ -16,6 +16,7 @@ struct SongPickView: View {
     @Query(sort: \Song.title) private var songs: [Song]
     @State private var search = ""
     @State private var activeTab: ActiveTab = .discover
+    @State private var showingAppleMusic = false
 
     enum ActiveTab {
         case discover
@@ -43,6 +44,11 @@ struct SongPickView: View {
         }
         .foregroundStyle(.white)
         .kemonPage(showPlanet: false, showCockpit: false)
+        #if canImport(MusicKit)
+        .sheet(isPresented: $showingAppleMusic) {
+            AppleMusicSearchView()
+        }
+        #endif
     }
 
     // MARK: - Sidebar Layout
@@ -214,12 +220,66 @@ struct SongPickView: View {
                 .offset(x: 20, y: -45)
                 .allowsHitTesting(false)
             
-            VStack(alignment: .leading, spacing: 22) {
+            VStack(alignment: .leading, spacing: 20) {
                 // Main visual greeting
                 Text("IT'S TIME TO SHINE")
                     .font(.orbitronBlack(size: 32))
                     .foregroundStyle(.white)
                     .meloGlowText()
+                
+                // Prominent Apple Music CTA Banner
+                Button {
+                    showingAppleMusic = true
+                } label: {
+                    HStack(spacing: 16) {
+                        Image(systemName: "music.note")
+                            .font(.title2)
+                            .frame(width: 44, height: 44)
+                            .foregroundStyle(.white)
+                            .background(
+                                LinearGradient(
+                                    colors: [Color(red: 1.0, green: 0.17, blue: 0.33), Color(red: 0.86, green: 0.1, blue: 0.6)],
+                                    startPoint: .topLeading, endPoint: .bottomTrailing
+                                ),
+                                in: RoundedRectangle(cornerRadius: 10)
+                            )
+                        
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("EXPLORE APPLE MUSIC")
+                                .font(.orbitronBold(size: 13))
+                                .foregroundStyle(.white)
+                            Text("Search and sing millions of tracks from the Music Kit catalog.")
+                                .font(.poppinsMedium(size: 11))
+                                .foregroundStyle(.white.opacity(0.6))
+                        }
+                        
+                        Spacer()
+                        
+                        Text("OPEN CATALOG")
+                            .font(.orbitronBold(size: 10))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(Color.white.opacity(0.12), in: Capsule())
+                    }
+                    .padding(14)
+                    .background(
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(Color.white.opacity(0.05))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .stroke(
+                                        LinearGradient(
+                                            colors: [Color(red: 1.0, green: 0.17, blue: 0.33).opacity(0.4), Color.clear],
+                                            startPoint: .topLeading, endPoint: .bottomTrailing
+                                        ),
+                                        lineWidth: 1.5
+                                    )
+                            )
+                    )
+                    .shadow(color: Color(red: 1.0, green: 0.17, blue: 0.33).opacity(0.1), radius: 8)
+                }
+                .buttonStyle(.plain)
                 
                 // TOP ALBUMS Horizontal Strip
                 VStack(alignment: .leading, spacing: 10) {
@@ -362,11 +422,57 @@ struct SongPickView: View {
                 .buttonStyle(.plain)
             }
             
+            // Apple Music Search Recommendation
+            Button {
+                showingAppleMusic = true
+            } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: "music.note")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(.white)
+                        .padding(8)
+                        .background(
+                            LinearGradient(
+                                colors: [Color(red: 1.0, green: 0.17, blue: 0.33), Color(red: 0.86, green: 0.1, blue: 0.6)],
+                                startPoint: .topLeading, endPoint: .bottomTrailing
+                            ),
+                            in: Circle()
+                        )
+                    
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Search Apple Music for \"\(search)\"")
+                            .font(.poppinsBold(size: 13))
+                            .foregroundStyle(.white)
+                        Text("Explore millions of songs in the global catalog")
+                            .font(.caption)
+                            .foregroundStyle(.white.opacity(0.6))
+                    }
+                    
+                    Spacer()
+                    
+                    Image(systemName: "chevron.forward")
+                        .foregroundStyle(.white.opacity(0.5))
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color.white.opacity(0.06))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(Color(red: 1.0, green: 0.17, blue: 0.33).opacity(0.3), lineWidth: 1)
+                        )
+                )
+                .shadow(color: Color(red: 1.0, green: 0.17, blue: 0.33).opacity(0.15), radius: 8)
+            }
+            .buttonStyle(.plain)
+            .padding(.bottom, 6)
+            
             if filtered.isEmpty {
-                Text("No songs found for \"\(search)\"")
+                Text("No local songs found for \"\(search)\"")
                     .font(.poppinsBold(size: 14))
                     .foregroundStyle(.white.opacity(0.5))
-                    .padding(.top, 20)
+                    .padding(.top, 10)
             } else {
                 ScrollView {
                     VStack(spacing: 8) {
@@ -375,6 +481,7 @@ struct SongPickView: View {
                         }
                     }
                 }
+                .frame(maxHeight: 380)
             }
         }
         .padding(.horizontal, 32)
@@ -394,6 +501,7 @@ struct SongPickView: View {
                     }
                 }
             }
+            .frame(maxHeight: 460)
         }
         .padding(.horizontal, 32)
     }
@@ -411,6 +519,7 @@ struct SongPickView: View {
                     }
                 }
             }
+            .frame(maxHeight: 460)
         }
         .padding(.horizontal, 32)
     }
@@ -428,6 +537,7 @@ struct SongPickView: View {
                     }
                 }
             }
+            .frame(maxHeight: 460)
         }
         .padding(.horizontal, 32)
     }
@@ -438,12 +548,35 @@ struct SongPickView: View {
                 .font(.orbitronBold(size: 14))
                 .foregroundStyle(.white.opacity(0.5))
             
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Want to add custom tracks?")
-                    .font(.headline)
-                Text("You can import local MP3 files or sync with your Apple Music library to sing custom tracks.")
+            VStack(alignment: .leading, spacing: 16) {
+                Text("Search & Add from Apple Music")
+                    .font(.poppinsBold(size: 16))
+                
+                Text("Connect your Apple Music subscription to access millions of tracks, sync playlists, and sing any song directly in Melodash.")
                     .font(.body)
                     .foregroundStyle(.white.opacity(0.7))
+                
+                Button {
+                    showingAppleMusic = true
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "music.note")
+                        Text("LAUNCH APPLE MUSIC CATALOG")
+                            .font(.orbitronBold(size: 12))
+                    }
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(
+                        LinearGradient(
+                            colors: [Color(red: 1.0, green: 0.17, blue: 0.33), Color(red: 0.86, green: 0.1, blue: 0.6)],
+                            startPoint: .leading, endPoint: .trailing
+                        ),
+                        in: Capsule()
+                    )
+                    .shadow(color: Color(red: 1.0, green: 0.17, blue: 0.33).opacity(0.3), radius: 8)
+                }
+                .buttonStyle(.plain)
             }
             .padding(20)
             .kemonGlassCard(16)
