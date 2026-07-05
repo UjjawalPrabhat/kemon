@@ -2,8 +2,9 @@
 //  SongPickView.swift
 //  kemon
 //
-//  "Pick the song!" — the current singer chooses a track. Styled with space theme
-//  and showing a banner indicating whose turn it is to select.
+//  "Pick the song!" — the current singer chooses a track.
+//  Redesigned as a premium space dashboard with a sidebar and a Discover tab
+//  featuring the ufo-purple-jumbo asset ornament.
 //
 
 import SwiftUI
@@ -14,7 +15,15 @@ struct SongPickView: View {
 
     @Query(sort: \Song.title) private var songs: [Song]
     @State private var search = ""
-    @State private var showingAppleMusic = false
+    @State private var activeTab: ActiveTab = .discover
+
+    enum ActiveTab {
+        case discover
+        case genre
+        case topCharts
+        case favourites
+        case addSong
+    }
 
     private var filtered: [Song] {
         let q = search.trimmingCharacters(in: .whitespaces).lowercased()
@@ -25,186 +34,424 @@ struct SongPickView: View {
     }
 
     var body: some View {
-        ZStack {
-            // Outerspace Background
-            SpaceBackgroundView(showPlanet: false, showCockpit: false)
+        HStack(spacing: 0) {
+            // Left Navigation Sidebar
+            sidebarView
             
-            NavigationStack {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 24) {
-                        // Current Selecting Player Indicator Header
-                        if let currentPlayer = battle.currentPlayer {
-                            HStack {
-                                Spacer()
-                                Text("• \(currentPlayer.displayName.uppercased()) SELECTING")
-                                    .font(.poppinsBold(size: 13))
-                                    .foregroundStyle(Color(red: 0.4, green: 0.8, blue: 1.0))
-                                    .padding(.horizontal, 14)
-                                    .padding(.vertical, 6)
-                                    .background(
-                                        Capsule()
-                                            .stroke(Color(red: 0.4, green: 0.8, blue: 1.0), lineWidth: 1.5)
-                                    )
-                                    .meloGlowText()
-                                Spacer()
-                            }
-                            .padding(.top, 8)
-                        }
-                        
-                        #if canImport(MusicKit)
-                        appleMusicCTA
-                        #endif
-                        
-                        if !filtered.isEmpty {
-                            recommendedStrip
-                        }
-                        songList
-                    }
-                    .padding(24)
-                }
-                .background(Color.clear)
-                .navigationTitle("Pick the Song!")
-                .searchable(text: $search, prompt: "Search artist, title, album")
-                .toolbar {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button { battle.startBattle() } label: {
-                            Image(systemName: "chevron.backward")
-                                .foregroundStyle(.white)
-                        }
-                    }
-                    #if canImport(MusicKit)
-                    ToolbarItem(placement: .primaryAction) {
-                        Button {
-                            showingAppleMusic = true
-                        } label: {
-                            Label("Apple Music", systemImage: "music.note")
-                                .foregroundStyle(Color(red: 0.4, green: 0.8, blue: 1.0))
-                        }
-                    }
-                    #endif
-                }
-                #if os(iOS) && !targetEnvironment(macCatalyst)
-                .toolbarColorScheme(.dark, for: .navigationBar)
-                #endif
-            }
-            .tint(Color(red: 0.4, green: 0.8, blue: 1.0))
-            #if canImport(MusicKit)
-            .sheet(isPresented: $showingAppleMusic) {
-                AppleMusicSearchView()
-            }
-            #endif
+            // Right Main Content View
+            mainContentView
         }
+        .foregroundStyle(.white)
+        .kemonPage(showPlanet: false, showCockpit: false)
     }
 
-    // MARK: - Pieces
-
-    #if canImport(MusicKit)
-    /// A prominent, glassy entry point to Apple Music catalog search.
-    private var appleMusicCTA: some View {
-        Button {
-            showingAppleMusic = true
-        } label: {
-            HStack(spacing: 14) {
-                Image(systemName: "music.note")
-                    .font(.title2)
-                    .frame(width: 46, height: 46)
-                    .foregroundStyle(.white)
-                    .background(Color(red: 0.4, green: 0.8, blue: 1.0).opacity(0.15), in: RoundedRectangle(cornerRadius: 12))
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Search Apple Music")
-                        .font(.headline)
-                        .foregroundStyle(.white)
-                    Text("Millions of songs — subscription required")
-                        .font(.caption)
-                        .foregroundStyle(.white.opacity(0.6))
+    // MARK: - Sidebar Layout
+    private var sidebarView: some View {
+        VStack(alignment: .leading, spacing: 28) {
+            // App branding header
+            Text("MELODASH")
+                .font(.orbitronBlack(size: 20))
+                .foregroundStyle(Color(red: 0.4, green: 0.8, blue: 1.0))
+                .meloGlowText()
+                .padding(.bottom, 12)
+            
+            // Browse Tab section
+            VStack(alignment: .leading, spacing: 14) {
+                Text("BROWSE")
+                    .font(.orbitronBold(size: 11))
+                    .foregroundStyle(.white.opacity(0.4))
+                    .padding(.leading, 12)
+                
+                sidebarButton(title: "DISCOVER", icon: "safari", isActive: activeTab == .discover) {
+                    activeTab = .discover
+                    search = ""
                 }
-                Spacer()
-                Image(systemName: "chevron.right").foregroundStyle(.white.opacity(0.6))
+                sidebarButton(title: "GENRE", icon: "guitars", isActive: activeTab == .genre) {
+                    activeTab = .genre
+                }
+                sidebarButton(title: "TOP CHARTS", icon: "chart.bar", isActive: activeTab == .topCharts) {
+                    activeTab = .topCharts
+                }
             }
-            .padding(14)
-            .kemonGlassCard(16)
+            
+            // Library Tab section
+            VStack(alignment: .leading, spacing: 14) {
+                Text("LIBRARY")
+                    .font(.orbitronBold(size: 11))
+                    .foregroundStyle(.white.opacity(0.4))
+                    .padding(.leading, 12)
+                
+                sidebarButton(title: "FAVOURITES", icon: "star", isActive: activeTab == .favourites) {
+                    activeTab = .favourites
+                }
+                sidebarButton(title: "ADD YOUR SONG", icon: "plus.circle", isActive: activeTab == .addSong) {
+                    activeTab = .addSong
+                }
+            }
+            
+            Spacer()
+            
+            // Back to lobby button
+            Button {
+                battle.startBattle()
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "chevron.backward")
+                        .font(.body.weight(.bold))
+                    Text("LOBBY")
+                        .font(.poppinsBold(size: 13))
+                }
+                .foregroundStyle(.white.opacity(0.6))
+                .padding(.vertical, 8)
+                .padding(.horizontal, 12)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.vertical, 32)
+        .padding(.horizontal, 16)
+        .frame(width: 220)
+        .frame(maxHeight: .infinity)
+        .background(Color.black.opacity(0.35))
+        .overlay(
+            Rectangle()
+                .fill(Color.white.opacity(0.08))
+                .frame(width: 1),
+            alignment: .trailing
+        )
+    }
+
+    private func sidebarButton(title: String, icon: String, isActive: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                Image(systemName: icon)
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(isActive ? Color(red: 0.4, green: 0.8, blue: 1.0) : .white.opacity(0.6))
+                    .frame(width: 20)
+                
+                Text(title)
+                    .font(.orbitronBold(size: 12))
+                    .foregroundStyle(isActive ? .white : .white.opacity(0.6))
+            }
+            .padding(.vertical, 8)
+            .padding(.horizontal, 12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(isActive ? Color.white.opacity(0.08) : Color.clear)
+            .clipShape(RoundedRectangle(cornerRadius: 8))
         }
         .buttonStyle(.plain)
     }
-    #endif
 
-    private var recommendedStrip: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Recommended")
-                .font(.orbitronBold(size: 18))
-                .foregroundStyle(.white)
+    // MARK: - Main Content Area
+    private var mainContentView: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            // Top utility header
+            HStack(alignment: .center) {
+                if let currentPlayer = battle.currentPlayer {
+                    Text("• \(currentPlayer.displayName.uppercased()) SELECTING")
+                        .font(.poppinsBold(size: 12))
+                        .foregroundStyle(Color(red: 0.4, green: 0.8, blue: 1.0))
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 5)
+                        .background(
+                            Capsule()
+                                .stroke(Color(red: 0.4, green: 0.8, blue: 1.0), lineWidth: 1.5)
+                        )
+                        .meloGlowText()
+                }
+                
+                Spacer()
+                
+                // Sleek Search bar
+                HStack(spacing: 8) {
+                    Image(systemName: "magnifyingglass")
+                        .foregroundStyle(.white.opacity(0.4))
+                    TextField("Search artist, title, album...", text: $search)
+                        .textFieldStyle(.plain)
+                        .foregroundStyle(.white)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .frame(width: 260)
+                .background(Color.white.opacity(0.06))
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10)
+                        .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                )
+            }
+            .padding(.top, 28)
+            .padding(.horizontal, 32)
             
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 16) {
-                    ForEach(filtered.prefix(8)) { song in
-                        Button { battle.pickSong(song) } label: {
-                            recommendedCard(song)
+            // Content Switcher
+            if !search.isEmpty {
+                searchResultsView
+            } else {
+                switch activeTab {
+                case .discover:
+                    discoverView
+                case .genre:
+                    genreView
+                case .topCharts:
+                    topChartsView
+                case .favourites:
+                    favouritesView
+                case .addSong:
+                    addSongView
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    // MARK: - Discover Dashboard View
+    private var discoverView: some View {
+        ZStack(alignment: .topTrailing) {
+            // Jumbo UFO Ornament casting a spotlight beam
+            Image("ufo-purple-jumbo")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 290, height: 230)
+                .offset(x: 20, y: -45)
+                .allowsHitTesting(false)
+            
+            VStack(alignment: .leading, spacing: 22) {
+                // Main visual greeting
+                Text("IT'S TIME TO SHINE")
+                    .font(.orbitronBlack(size: 32))
+                    .foregroundStyle(.white)
+                    .meloGlowText()
+                
+                // TOP ALBUMS Horizontal Strip
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack {
+                        Text("TOP ALBUMS")
+                            .font(.orbitronBold(size: 13))
+                            .foregroundStyle(.white.opacity(0.5))
+                        
+                        Spacer()
+                        
+                        Button {} label: {
+                            Text("See All")
+                                .font(.poppinsBold(size: 11))
+                                .foregroundStyle(Color(red: 0.4, green: 0.8, blue: 1.0))
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 3)
+                                .background(
+                                    Capsule()
+                                        .stroke(Color(red: 0.4, green: 0.8, blue: 1.0), lineWidth: 1)
+                                )
                         }
                         .buttonStyle(.plain)
+                    }
+                    
+                    HStack(spacing: 16) {
+                        Image(systemName: "chevron.left")
+                            .font(.title3.weight(.bold))
+                            .foregroundStyle(.white.opacity(0.3))
+                        
+                        ForEach(songs.prefix(5)) { song in
+                            Button {
+                                battle.pickSong(song)
+                            } label: {
+                                artwork(for: song, size: 94)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                                    )
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        
+                        Image(systemName: "chevron.right")
+                            .font(.title3.weight(.bold))
+                            .foregroundStyle(.white.opacity(0.3))
+                    }
+                }
+                
+                // RECOMMENDATIONS FOR YOU Vertical Row list
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("RECOMMENDATIONS FOR YOU")
+                        .font(.orbitronBold(size: 13))
+                        .foregroundStyle(.white.opacity(0.5))
+                    
+                    VStack(spacing: 8) {
+                        ForEach(Array(songs.prefix(4).enumerated()), id: \.element.id) { index, song in
+                            recommendationRow(index: index, song: song)
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, 32)
+            .padding(.bottom, 24)
+        }
+    }
+
+    private func recommendationRow(index: Int, song: Song) -> some View {
+        HStack(spacing: 16) {
+            // Index counter e.g. "00"
+            Text(String(format: "%02d", index))
+                .font(.orbitronBold(size: 12))
+                .foregroundStyle(.white.opacity(0.4))
+                .frame(width: 24)
+            
+            // Action button placeholder
+            Button {} label: {
+                Image(systemName: "plus")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(.white.opacity(0.6))
+            }
+            .buttonStyle(.plain)
+            
+            // Circle bubble artwork
+            artwork(for: song, size: 34)
+                .clipShape(Circle())
+            
+            // Details
+            VStack(alignment: .leading, spacing: 2) {
+                Text(song.title)
+                    .font(.poppinsBold(size: 13))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                
+                Text(song.artist)
+                    .font(.caption)
+                    .foregroundStyle(.white.opacity(0.5))
+                    .lineLimit(1)
+            }
+            
+            Spacer()
+            
+            // Custom SING button
+            Button {
+                battle.pickSong(song)
+            } label: {
+                Text("SING")
+                    .font(.orbitronBold(size: 11))
+                    .foregroundStyle(Color(red: 0.4, green: 0.8, blue: 1.0))
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 4)
+                    .background(
+                        Capsule()
+                            .stroke(Color(red: 0.4, green: 0.8, blue: 1.0), lineWidth: 1.5)
+                    )
+                    .shadow(color: Color(red: 0.4, green: 0.8, blue: 1.0).opacity(0.3), radius: 4)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.vertical, 6)
+        .padding(.horizontal, 12)
+        .background(Color.white.opacity(0.04))
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+    }
+
+    // MARK: - Search Results Tab
+    private var searchResultsView: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Text("SEARCH RESULTS")
+                    .font(.orbitronBold(size: 14))
+                    .foregroundStyle(.white.opacity(0.5))
+                Spacer()
+                Button {
+                    search = ""
+                } label: {
+                    Text("Clear")
+                        .font(.caption)
+                        .foregroundStyle(.white.opacity(0.6))
+                }
+                .buttonStyle(.plain)
+            }
+            
+            if filtered.isEmpty {
+                Text("No songs found for \"\(search)\"")
+                    .font(.poppinsBold(size: 14))
+                    .foregroundStyle(.white.opacity(0.5))
+                    .padding(.top, 20)
+            } else {
+                ScrollView {
+                    VStack(spacing: 8) {
+                        ForEach(Array(filtered.enumerated()), id: \.element.id) { index, song in
+                            recommendationRow(index: index, song: song)
+                        }
                     }
                 }
             }
         }
+        .padding(.horizontal, 32)
     }
 
-    private func recommendedCard(_ song: Song) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            artwork(for: song, size: 150)
-            Text(song.title)
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.white)
-                .lineLimit(1)
-            Text(song.artist)
-                .font(.caption)
-                .foregroundStyle(.white.opacity(0.6))
-                .lineLimit(1)
-        }
-        .frame(width: 150)
-        .padding(10)
-        .kemonGlassCard(16)
-    }
-
-    private var songList: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("All Songs")
-                .font(.orbitronBold(size: 18))
-                .foregroundStyle(.white)
+    // MARK: - Generic Tab Content Views
+    private var genreView: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("GENRES")
+                .font(.orbitronBold(size: 14))
+                .foregroundStyle(.white.opacity(0.5))
             
-            ForEach(filtered) { song in
-                Button { battle.pickSong(song) } label: {
-                    row(for: song)
+            ScrollView {
+                VStack(spacing: 8) {
+                    ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
+                        recommendationRow(index: index, song: song)
+                    }
                 }
-                .buttonStyle(.plain)
             }
         }
+        .padding(.horizontal, 32)
     }
-
-    private func row(for song: Song) -> some View {
-        HStack(spacing: 14) {
-            artwork(for: song, size: 52)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(song.title)
-                    .font(.headline)
-                    .foregroundStyle(.white)
-                Text(song.artist)
-                    .font(.subheadline)
-                    .foregroundStyle(.white.opacity(0.6))
-            }
-            Spacer()
-            Text(song.genre.displayName)
-                .font(.caption.weight(.medium))
-                .foregroundStyle(.white)
-                .padding(.horizontal, 8).padding(.vertical, 4)
-                .background(Color.white.opacity(0.12), in: Capsule())
+    
+    private var topChartsView: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("TOP CHARTS")
+                .font(.orbitronBold(size: 14))
+                .foregroundStyle(.white.opacity(0.5))
             
-            Image(systemName: "play.circle.fill")
-                .font(.title2)
-                .foregroundStyle(Color(red: 0.4, green: 0.8, blue: 1.0))
+            ScrollView {
+                VStack(spacing: 8) {
+                    ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
+                        recommendationRow(index: index, song: song)
+                    }
+                }
+            }
         }
-        .padding(12)
-        .kemonGlassCard(14)
+        .padding(.horizontal, 32)
+    }
+    
+    private var favouritesView: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("FAVOURITES")
+                .font(.orbitronBold(size: 14))
+                .foregroundStyle(.white.opacity(0.5))
+            
+            ScrollView {
+                VStack(spacing: 8) {
+                    ForEach(Array(songs.prefix(3).enumerated()), id: \.element.id) { index, song in
+                        recommendationRow(index: index, song: song)
+                    }
+                }
+            }
+        }
+        .padding(.horizontal, 32)
+    }
+    
+    private var addSongView: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            Text("ADD YOUR SONG")
+                .font(.orbitronBold(size: 14))
+                .foregroundStyle(.white.opacity(0.5))
+            
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Want to add custom tracks?")
+                    .font(.headline)
+                Text("You can import local MP3 files or sync with your Apple Music library to sing custom tracks.")
+                    .font(.body)
+                    .foregroundStyle(.white.opacity(0.7))
+            }
+            .padding(20)
+            .kemonGlassCard(16)
+        }
+        .padding(.horizontal, 32)
     }
 
+    // MARK: - Artwork Helpers
     @ViewBuilder
     private func artwork(for song: Song, size: CGFloat) -> some View {
         if let urlString = song.artworkURLString, let url = URL(string: urlString) {
