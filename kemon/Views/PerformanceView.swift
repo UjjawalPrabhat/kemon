@@ -2,21 +2,27 @@
 //  PerformanceView.swift
 //  kemon
 //
-//  The karaoke stage: live front-camera background, a scrolling lyric box whose
-//  colour reflects how well the current expression matches the song's vibe, a
-//  live emotion badge, and the running score. Ends on a summary card.
+//  The karaoke stage for one singer's turn: live camera background, a scrolling
+//  lyric box whose colour reflects how well the current expression matches the
+//  song's vibe, a live emotion badge, pitch/energy HUD, and a running score.
+//  Ends on a result card whose "Continue" hands the score back to the battle.
 //
 
 import SwiftUI
 
 struct PerformanceView: View {
     let song: Song
+    /// The singer taking this turn (shown in the header).
+    var playerName: String = ""
+    /// Called with the final 0–100 overall score when the singer taps Continue.
+    var onFinish: (Int) -> Void = { _ in }
 
     @State private var engine = KemonEngine()
+    @State private var showRomanized = false
 
     var body: some View {
         ZStack {
-            cameraPreview
+            CameraPreview(session: engine.camera.session)
                 .ignoresSafeArea()
 
             // Legibility scrim over the camera feed.
@@ -40,52 +46,49 @@ struct PerformanceView: View {
             .padding()
 
             if let summary = engine.finalSummary {
-                summaryCard(summary)
+                resultCard(summary)
             }
         }
-        .navigationTitle(song.title)
-        .navigationBarTitleDisplayModeInlineIfAvailable()
         .onAppear { engine.start(song: song) }
         .onDisappear { engine.stop() }
     }
 
     // MARK: - Pieces
 
-    @ViewBuilder
-    private var cameraPreview: some View {
-        #if os(iOS) && canImport(ARKit)
-        if engine.mode == .arkit, let arFace = engine.arFace {
-            ARFaceCameraView(session: arFace.session)
-        } else {
-            CameraPreview(session: engine.camera.session)
-        }
-        #else
-        CameraPreview(session: engine.camera.session)
-        #endif
-    }
-
     private var header: some View {
-        HStack(alignment: .top) {
-            emotionBadge
-            Spacer()
-            if engine.arKitAvailable {
-                modePicker
+        VStack(spacing: 6) {
+            HStack(alignment: .top) {
+                emotionBadge
+                Spacer()
+                
+                if hasNonLatinLyrics {
+                    Button {
+                        showRomanized.toggle()
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "character.bubble")
+                            Text(showRomanized ? "Original" : "Romanize")
+                                .font(.system(size: 13, weight: .bold, design: .monospaced))
+                        }
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(Capsule().fill(Color.white.opacity(0.15)))
+                        .overlay(Capsule().stroke(Color.white.opacity(0.2), lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            Text(song.title)
+                .font(.system(size: 28, weight: .bold, design: .monospaced))
+                .foregroundStyle(.white)
+                .meloGlowText()
+            if !playerName.isEmpty {
+                Text(playerName.uppercased())
+                    .font(.system(size: 14, weight: .bold, design: .monospaced))
+                    .foregroundStyle(Color(red: 0.4, green: 0.8, blue: 1.0))
             }
         }
-    }
-
-    /// A/B switch between the Core ML+Vision pipeline and ARKit blendshapes.
-    private var modePicker: some View {
-        Picker("Mode", selection: Binding(
-            get: { engine.mode },
-            set: { engine.setMode($0) }
-        )) {
-            ForEach(AnalysisMode.allCases) { m in
-                Text(m.rawValue).tag(m)
-            }
-        }
-        .pickerStyle(.segmented)
-        .frame(width: 160)
     }
 
     private var emotionBadge: some View {
@@ -226,7 +229,7 @@ struct PerformanceView: View {
     private var lyricsBox: some View {
         VStack(spacing: 12) {
             ForEach(visibleLyricWindow, id: \.offset) { item in
-                Text(item.line.text)
+                Text(lyricText(for: item.line.text))
                     .font(item.isCurrent ? .title.bold() : .title3)
                     .foregroundStyle(item.isCurrent ? vibeColor : .white.opacity(0.5))
                     .multilineTextAlignment(.center)
@@ -242,6 +245,22 @@ struct PerformanceView: View {
         .padding()
     }
 
+    private func lyricText(for text: String) -> String {
+        guard showRomanized else { return text }
+        return text.applyingTransform(.toLatin, reverse: false)?
+            .applyingTransform(.stripDiacritics, reverse: false) ?? text
+    }
+
+    private var hasNonLatinLyrics: Bool {
+        for line in engine.lyrics {
+            if let transformed = line.text.applyingTransform(.toLatin, reverse: false),
+               transformed != line.text {
+                return true
+            }
+        }
+        return false
+    }
+
     private var startStopButton: some View {
         Button(role: .destructive) {
             engine.stop()
@@ -252,26 +271,32 @@ struct PerformanceView: View {
                 .padding(.vertical, 12)
         }
         .buttonStyle(.borderedProminent)
+        .buttonBorderShape(.capsule)
         .tint(.red)
     }
 
-    private func summaryCard(_ summary: String) -> some View {
+    private func resultCard(_ summary: String) -> some View {
         VStack(spacing: 20) {
             Image(systemName: "sparkles")
                 .font(.system(size: 48))
                 .foregroundStyle(.yellow)
+                .meloGlowText(color: .yellow)
             Text(summary)
-                .font(.title2.weight(.semibold))
+                .font(.system(size: 20, weight: .bold, design: .monospaced))
+                .foregroundStyle(.white)
                 .multilineTextAlignment(.center)
-            Text("\(engine.overallScore)%")
-                .font(.system(size: 64, weight: .heavy, design: .rounded))
+            Text("\(engine.overallScore)")
+                .font(.system(size: 64, weight: .black, design: .monospaced))
+                .foregroundStyle(.white)
+                .meloGlowText()
             scoreBreakdown
-            Button("Sing Again") { engine.start(song: song) }
-                .buttonStyle(.borderedProminent)
+            KemonPrimaryButton(title: "Continue", systemImage: "arrow.right") {
+                onFinish(engine.overallScore)
+            }
         }
         .padding(32)
-        .frame(maxWidth: 340)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 24))
+        .frame(maxWidth: 380)
+        .kemonGlassCard(24)
         .padding()
     }
 
@@ -311,17 +336,5 @@ struct PerformanceView: View {
         return engine.lyrics.enumerated()
             .filter { range.contains($0.offset) }
             .map { (offset: $0.offset, line: $0.element, isCurrent: $0.offset == current) }
-    }
-}
-
-private extension View {
-    /// Inline title on iOS; no-op elsewhere so the file compiles for Mac.
-    @ViewBuilder
-    func navigationBarTitleDisplayModeInlineIfAvailable() -> some View {
-        #if os(iOS)
-        self.navigationBarTitleDisplayMode(.inline)
-        #else
-        self
-        #endif
     }
 }

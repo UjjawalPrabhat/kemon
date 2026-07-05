@@ -81,6 +81,9 @@ final class Song {
 
     /// MusicKit item id for an Apple Music song (nil otherwise).
     var appleMusicID: String?
+    
+    /// MusicKit artwork image URL template as absolute string (nil otherwise).
+    var artworkURLString: String?
 
     var genre: SongGenre {
         get { SongGenre(rawValue: genreRaw) ?? .chill }
@@ -114,7 +117,8 @@ final class Song {
         lyrics: [LyricLine],
         source: SongSourceKind = .bundled,
         importedBookmark: Data? = nil,
-        appleMusicID: String? = nil
+        appleMusicID: String? = nil,
+        artworkURLString: String? = nil
     ) {
         self.title = title
         self.artist = artist
@@ -125,5 +129,6 @@ final class Song {
         self.sourceKindRaw = source.rawValue
         self.importedBookmark = importedBookmark
         self.appleMusicID = appleMusicID
+        self.artworkURLString = artworkURLString
     }
 }

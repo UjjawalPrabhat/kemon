@@ -36,8 +36,42 @@ struct CameraPreview: UIViewRepresentable {
         }
     }
 }
+#elseif os(macOS)
+import AppKit
+
+struct CameraPreview: NSViewRepresentable {
+    let session: AVCaptureSession
+
+    func makeNSView(context: Context) -> PreviewView {
+        let view = PreviewView()
+        view.previewLayer.session = session
+        view.previewLayer.videoGravity = .resizeAspectFill
+        return view
+    }
+
+    func updateNSView(_ nsView: PreviewView, context: Context) {
+        if nsView.previewLayer.session !== session {
+            nsView.previewLayer.session = session
+        }
+    }
+
+    /// A layer-backed NSView whose backing layer IS the capture preview layer,
+    /// mirroring the iOS `PreviewView`.
+    final class PreviewView: NSView {
+        let previewLayer = AVCaptureVideoPreviewLayer()
+
+        init() {
+            super.init(frame: .zero)
+            wantsLayer = true
+            layer = previewLayer
+        }
+
+        @available(*, unavailable)
+        required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+    }
+}
 #else
-// Placeholder so the project also compiles for "Designed for iPad" on Mac.
+// Fallback so the project still compiles on other platforms.
 struct CameraPreview: View {
     let session: AVCaptureSession
     var body: some View { Color.black }

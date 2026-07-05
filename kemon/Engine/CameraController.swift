@@ -79,9 +79,14 @@ nonisolated final class CameraController: NSObject, AVCaptureVideoDataOutputSamp
         session.beginConfiguration()
         session.sessionPreset = .high
 
-        if let device = AVCaptureDevice.default(.builtInWideAngleCamera,
-                                                for: .video,
-                                                position: .front),
+        // Prefer the front camera (iPhone selfie cam); on a Mac there's usually
+        // no explicit `.front` device, so fall back to the default video device
+        // (the built-in FaceTime camera).
+        let device = AVCaptureDevice.default(.builtInWideAngleCamera,
+                                             for: .video,
+                                             position: .front)
+            ?? AVCaptureDevice.default(for: .video)
+        if let device,
            let input = try? AVCaptureDeviceInput(device: device),
            session.canAddInput(input) {
             session.addInput(input)
@@ -109,9 +114,14 @@ nonisolated final class CameraController: NSObject, AVCaptureVideoDataOutputSamp
 
         guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
 
-        // Front camera in portrait → faces are upright when read as .leftMirrored.
-        // If you support rotation, derive this from the device/connection instead.
+        // iPhone front camera in portrait → faces are upright when read as
+        // .leftMirrored. The Mac's FaceTime camera already delivers upright,
+        // landscape frames, so read those as .up.
+        #if os(iOS)
         let orientation: CGImagePropertyOrientation = .leftMirrored
+        #else
+        let orientation: CGImagePropertyOrientation = .up
+        #endif
 
         let handler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer,
                                             orientation: orientation,

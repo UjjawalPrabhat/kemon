@@ -30,9 +30,6 @@ final class KemonEngine {
     private(set) var lyrics: [LyricLine] = []
 
     let camera: CameraController
-    #if canImport(ARKit)
-    let arFace: ARFaceController?
-    #endif
 
     /// Captures + analyses the singer's voice. Owns the shared AVAudioEngine
     /// that LocalAudioEngine attaches its backing-track player to.
@@ -54,18 +51,6 @@ final class KemonEngine {
             guard oldValue != vocalSuppressed else { return }
             setVocalSuppress(vocalSuppressed)
         }
-    }
-
-    /// Active analysis pipeline (A/B switch). Observed by the UI.
-    private(set) var mode: AnalysisMode = .model
-
-    /// Whether the ARKit pipeline can run on this device (TrueDepth required).
-    var arKitAvailable: Bool {
-        #if canImport(ARKit)
-        return arFace != nil
-        #else
-        return false
-        #endif
     }
 
     private var song: Song?
@@ -91,9 +76,6 @@ final class KemonEngine {
             usingTrainedModel = false
         }
         camera = CameraController(analyzer: resolved)
-        #if canImport(ARKit)
-        arFace = ARFaceController.isSupported ? ARFaceController() : nil
-        #endif
 
         // Local playback attaches its player node to the mic's shared engine so
         // echo cancellation has the backing track as its reference signal.
@@ -103,36 +85,16 @@ final class KemonEngine {
         camera.onReading = { [weak self] reading in
             self?.handle(reading)
         }
-        #if canImport(ARKit)
-        arFace?.onReading = { [weak self] reading in
-            self?.handle(reading)
-        }
-        #endif
         mic.onReading = { [weak self] reading in
             self?.handle(voice: reading)
         }
+        #if os(iOS)
         observeInterruptions()
-    }
-
-    /// The source for the current mode (falls back to the camera).
-    private var activeSource: FaceSource {
-        #if canImport(ARKit)
-        if mode == .arkit, let arFace { return arFace }
         #endif
-        return camera
     }
 
-    /// Switches pipeline live. If a performance is in progress the new source is
-    /// started immediately; the two sources never run at once (they share the
-    /// camera).
-    func setMode(_ newMode: AnalysisMode) {
-        guard newMode != mode else { return }
-        let wasPerforming = isPerforming
-        activeSource.stop()      // stop the OLD source (mode not yet changed)
-        mode = newMode
-        smoothed = [:]
-        if wasPerforming { activeSource.start() }
-    }
+    /// The face-analysis source (Core ML + Vision camera pipeline).
+    private var activeSource: FaceSource { camera }
 
     // MARK: - Session control
 
@@ -199,9 +161,6 @@ final class KemonEngine {
     func stop() {
         finishPerformance()
         camera.stop()
-        #if canImport(ARKit)
-        arFace?.stop()
-        #endif
         mic.stop()
     }
 
@@ -278,6 +237,10 @@ final class KemonEngine {
 
     // MARK: - Audio-session interruptions
 
+    // AVAudioSession — and therefore interruption notifications — only exist on
+    // iOS. On macOS the audio graph isn't interrupted this way, so these are
+    // no-ops there.
+    #if os(iOS)
     private func observeInterruptions() {
         NotificationCenter.default.addObserver(
             forName: AVAudioSession.interruptionNotification,
@@ -308,6 +271,7 @@ final class KemonEngine {
             break
         }
     }
+    #endif
 
     // MARK: - Frame ingestion
 
@@ -346,23 +310,15 @@ final class KemonEngine {
         debugConfidences = reading.confidences
         debugSmile = reading.smile
 
+        // Sensitivity-scale the classifier, then fuse the gated Vision smile
+        // into `happy` (which the static-image model reads weakly while singing).
         var calibrated: [Emotion: Double] = [:]
-        switch mode {
-        case .model:
-            // Model mode: sensitivity-scale the classifier, then fuse the
-            // gated Vision smile into `happy`.
-            for e in Emotion.allCases {
-                calibrated[e] = reading.confidence(of: e) * (sensitivity[e] ?? 1)
-            }
-            let gatedSmile = reading.smile < smileGate ? 0 : reading.smile
-            calibrated[.happy] = calibrated[.happy]! * happyModelWeight
-                               + gatedSmile * happyVisionWeight
-
-        case .arkit:
-            // ARKit mode: blendshapes already give a clean 4-way vector — use it
-            // raw (no model fusion) so the A/B comparison is fair.
-            for e in Emotion.allCases { calibrated[e] = reading.confidence(of: e) }
+        for e in Emotion.allCases {
+            calibrated[e] = reading.confidence(of: e) * (sensitivity[e] ?? 1)
         }
+        let gatedSmile = reading.smile < smileGate ? 0 : reading.smile
+        calibrated[.happy] = calibrated[.happy]! * happyModelWeight
+                           + gatedSmile * happyVisionWeight
 
         // Renormalise to a probability vector.
         let total = calibrated.values.reduce(0, +)

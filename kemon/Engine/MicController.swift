@@ -70,7 +70,11 @@ nonisolated final class MicController: NSObject, VoiceSource, @unchecked Sendabl
     /// Configures the AVAudioSession for play-and-record WITHOUT starting the
     /// engine. Call this early so MusicKit sees the session before it prepares,
     /// and so LocalAudioEngine can attach its player node before the engine runs.
+    ///
+    /// macOS has no AVAudioSession — the audio graph runs without one — so this
+    /// is a no-op there.
     func configureSession() {
+        #if os(iOS)
         guard !sessionConfigured else { return }
         do {
             let session = AVAudioSession.sharedInstance()
@@ -83,6 +87,7 @@ nonisolated final class MicController: NSObject, VoiceSource, @unchecked Sendabl
         } catch {
             // Session config failed — mic will no-op.
         }
+        #endif
     }
 
     /// `VoiceSource` entry point: local-song defaults (AEC on, no mixing).
@@ -98,11 +103,14 @@ nonisolated final class MicController: NSObject, VoiceSource, @unchecked Sendabl
     func start(voiceProcessing: Bool, mixWithOthers: Bool) {
         self.useVoiceProcessing = voiceProcessing
         self.mixWithOthers = mixWithOthers
-        switch AVAudioApplication.shared.recordPermission {
-        case .granted:
+        // AVCaptureDevice authorization for `.audio` is the one permission API
+        // that exists on BOTH iOS and macOS (AVAudioApplication.recordPermission
+        // is iOS-only). It gates the same microphone TCC entitlement.
+        switch AVCaptureDevice.authorizationStatus(for: .audio) {
+        case .authorized:
             configureAndRun()
-        case .undetermined:
-            AVAudioApplication.requestRecordPermission { [weak self] granted in
+        case .notDetermined:
+            AVCaptureDevice.requestAccess(for: .audio) { [weak self] granted in
                 if granted { self?.configureAndRun() }
             }
         default:
@@ -124,9 +132,12 @@ nonisolated final class MicController: NSObject, VoiceSource, @unchecked Sendabl
     }
 
     /// Reactivates the session and restarts the engine after an interruption.
+    /// (Interruptions are an iOS concept; on macOS this just restarts the engine.)
     func resume() {
         guard isRunning else { return }
+        #if os(iOS)
         try? AVAudioSession.sharedInstance().setActive(true)
+        #endif
         try? engine.start()
     }
 
