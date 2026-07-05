@@ -38,7 +38,8 @@ struct ContentView: View {
             if let song = battle.selectedSong {
                 PerformanceView(
                     song: song,
-                    playerName: battle.currentPlayer?.displayName ?? ""
+                    playerName: battle.currentPlayer?.displayName ?? "",
+                    avatarImageName: battle.currentPlayer?.avatar?.imageName ?? ""
                 ) { score in
                     battle.finishTurn(score: score)
                 }

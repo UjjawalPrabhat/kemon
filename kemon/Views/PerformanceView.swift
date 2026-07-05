@@ -2,10 +2,10 @@
 //  PerformanceView.swift
 //  kemon
 //
-//  The karaoke stage for one singer's turn: live camera background, a scrolling
-//  lyric box whose colour reflects how well the current expression matches the
-//  song's vibe, a live emotion badge, pitch/energy HUD, and a running score.
-//  Ends on a result card whose "Continue" hands the score back to the battle.
+//  The karaoke stage for one singer's turn. Features a small PiP camera
+//  preview in the top-left corner, dominant centered lyrics with
+//  Poppins Bold/Medium styling, song album art, and a loading overlay
+//  that displays while the engine prepares audio/camera.
 //
 
 import SwiftUI
@@ -14,53 +14,214 @@ struct PerformanceView: View {
     let song: Song
     /// The singer taking this turn (shown in the header).
     var playerName: String = ""
+    /// Avatar image name for the current player.
+    var avatarImageName: String = ""
     /// Called with the final 0–100 overall score when the singer taps Continue.
     var onFinish: (Int) -> Void = { _ in }
 
     @State private var engine = KemonEngine()
     @State private var showRomanized = false
+    @State private var showVolumePanel = false
+
+    /// True while the engine is still preparing (camera, mic, audio).
+    private var isLoading: Bool {
+        !engine.isPerforming && engine.finalSummary == nil
+    }
 
     var body: some View {
         ZStack {
-            CameraPreview(session: engine.camera.session)
-                .ignoresSafeArea()
+            // Live karaoke stage
+            karaokeStage
+                .opacity(isLoading ? 0 : 1)
 
-            // Legibility scrim over the camera feed.
-            LinearGradient(
-                colors: [.black.opacity(0.65), .clear, .black.opacity(0.75)],
-                startPoint: .top, endPoint: .bottom
-            )
-            .ignoresSafeArea()
-
-            VStack {
-                header
-                voiceHUD
-                Spacer()
-                lyricsBox
-                Spacer()
-                if engine.isPerforming {
-                    vocalControls
-                    startStopButton
-                }
+            // Loading overlay
+            if isLoading {
+                loadingOverlay
+                    .transition(.opacity)
             }
-            .padding()
 
+            // Result card overlay
             if let summary = engine.finalSummary {
                 resultCard(summary)
+                    .transition(.scale.combined(with: .opacity))
             }
         }
+        .animation(.easeInOut(duration: 0.6), value: isLoading)
+        .animation(.spring(duration: 0.5), value: engine.finalSummary != nil)
         .onAppear { engine.start(song: song) }
         .onDisappear { engine.stop() }
     }
 
-    // MARK: - Pieces
+    // MARK: - Loading Overlay
 
-    private var header: some View {
-        VStack(spacing: 6) {
-            HStack(alignment: .top) {
-                emotionBadge
+    private var loadingOverlay: some View {
+        VStack(spacing: 28) {
+            Spacer()
+
+            // Song album artwork (large)
+            songArtwork(size: 180)
+                .shadow(color: Color(red: 0.4, green: 0.8, blue: 1.0).opacity(0.3), radius: 20)
+
+            // Song info
+            VStack(spacing: 8) {
+                Text(song.title)
+                    .font(.orbitronBold(size: 28))
+                    .foregroundStyle(.white)
+                    .meloGlowText()
+                    .multilineTextAlignment(.center)
+
+                Text(song.artist)
+                    .font(.poppinsMedium(size: 16))
+                    .foregroundStyle(.white.opacity(0.6))
+            }
+
+            // Player badge
+            if !playerName.isEmpty {
+                HStack(spacing: 8) {
+                    if !avatarImageName.isEmpty {
+                        Image(avatarImageName)
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: 28, height: 28)
+                            .clipShape(Circle())
+                    }
+                    Text(playerName.uppercased())
+                        .font(.poppinsBold(size: 13))
+                        .foregroundStyle(Color(red: 0.4, green: 0.8, blue: 1.0))
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .background(
+                    Capsule()
+                        .stroke(Color(red: 0.4, green: 0.8, blue: 1.0).opacity(0.5), lineWidth: 1.5)
+                )
+            }
+
+            Spacer()
+
+            // Loading indicator
+            VStack(spacing: 12) {
+                ProgressView()
+                    .controlSize(.regular)
+                    .tint(Color(red: 0.4, green: 0.8, blue: 1.0))
+
+                Text("PREPARING YOUR STAGE...")
+                    .font(.orbitronBold(size: 12))
+                    .foregroundStyle(.white.opacity(0.5))
+            }
+            .padding(.bottom, 60)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .kemonPage(showPlanet: false, showCockpit: false, ufoStyle: .none)
+    }
+
+    // MARK: - Live Karaoke Stage
+
+    private var karaokeStage: some View {
+        ZStack(alignment: .topLeading) {
+            // Space background
+            Color.clear
+                .kemonPage(showPlanet: false, showCockpit: false, ufoStyle: .none)
+
+            VStack(spacing: 0) {
+                // Top bar: PiP camera + song info + controls
+                topBar
+                    .padding(.top, 16)
+                    .padding(.horizontal, 24)
+
                 Spacer()
-                
+
+                // Dominant centered lyrics
+                lyricsBox
+                    .padding(.horizontal, 40)
+
+                Spacer()
+
+                // Bottom controls
+                bottomControls
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 24)
+            }
+        }
+    }
+
+    // MARK: - Top Bar
+
+    private var topBar: some View {
+        HStack(alignment: .top, spacing: 16) {
+            // PiP Camera Preview
+            ZStack(alignment: .bottomTrailing) {
+                CameraPreview(session: engine.camera.session)
+                    .frame(width: 180, height: 135)
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14)
+                            .stroke(Color(red: 0.4, green: 0.8, blue: 1.0).opacity(0.4), lineWidth: 1.5)
+                    )
+                    .shadow(color: Color(red: 0.4, green: 0.8, blue: 1.0).opacity(0.2), radius: 8)
+
+                // Emotion badge overlay on camera
+                emotionBadgeCompact
+                    .offset(x: -6, y: -6)
+            }
+
+            // Song info + player badge
+            VStack(alignment: .leading, spacing: 8) {
+                // Player name badge
+                if !playerName.isEmpty {
+                    HStack(spacing: 6) {
+                        if !avatarImageName.isEmpty {
+                            Image(avatarImageName)
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: 24, height: 24)
+                                .clipShape(Circle())
+                        }
+                        Text(playerName.uppercased())
+                            .font(.poppinsBold(size: 11))
+                            .foregroundStyle(Color(red: 0.4, green: 0.8, blue: 1.0))
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(
+                        Capsule()
+                            .fill(Color(red: 0.4, green: 0.8, blue: 1.0).opacity(0.1))
+                    )
+                    .overlay(
+                        Capsule()
+                            .stroke(Color(red: 0.4, green: 0.8, blue: 1.0).opacity(0.3), lineWidth: 1)
+                    )
+                }
+
+                // Song details with artwork
+                HStack(spacing: 12) {
+                    songArtwork(size: 48)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(song.title)
+                            .font(.poppinsBold(size: 15))
+                            .foregroundStyle(.white)
+                            .lineLimit(1)
+                        Text(song.artist)
+                            .font(.poppinsMedium(size: 12))
+                            .foregroundStyle(.white.opacity(0.5))
+                            .lineLimit(1)
+                    }
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(Color.white.opacity(0.06))
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                )
+            }
+
+            Spacer()
+
+            // Right controls: Romanize + Volume
+            VStack(alignment: .trailing, spacing: 8) {
                 if hasNonLatinLyrics {
                     Button {
                         showRomanized.toggle()
@@ -68,58 +229,408 @@ struct PerformanceView: View {
                         HStack(spacing: 6) {
                             Image(systemName: "character.bubble")
                             Text(showRomanized ? "Original" : "Romanize")
-                                .font(.system(size: 13, weight: .bold, design: .monospaced))
+                                .font(.poppinsBold(size: 11))
                         }
                         .foregroundStyle(.white)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
-                        .background(Capsule().fill(Color.white.opacity(0.15)))
+                        .background(Color.white.opacity(0.1), in: Capsule())
                         .overlay(Capsule().stroke(Color.white.opacity(0.2), lineWidth: 1))
                     }
                     .buttonStyle(.plain)
                 }
+
+                // Volume panel toggle
+                Button {
+                    withAnimation(.spring(duration: 0.3)) {
+                        showVolumePanel.toggle()
+                    }
+                } label: {
+                    Image(systemName: "slider.horizontal.3")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundStyle(.white.opacity(0.7))
+                        .frame(width: 36, height: 36)
+                        .background(Color.white.opacity(0.1), in: Circle())
+                }
+                .buttonStyle(.plain)
+
+                if showVolumePanel {
+                    volumePanel
+                }
+
+                #if DEBUG
+                if Self.showsDebug {
+                    debugReadout
+                }
+                #endif
             }
-            Text(song.title)
-                .font(.system(size: 28, weight: .bold, design: .monospaced))
+        }
+    }
+
+    // MARK: - Compact Emotion Badge
+
+    private var emotionBadgeCompact: some View {
+        let reading = engine.currentReading
+        return HStack(spacing: 4) {
+            Image(systemName: reading.faceDetected ? reading.dominant.symbolName : "eye.slash")
+                .font(.system(size: 10, weight: .bold))
+            Text(reading.faceDetected ? reading.dominant.displayName : "No face")
+                .font(.poppinsBold(size: 9))
+        }
+        .foregroundStyle(.white)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(Color.black.opacity(0.6), in: Capsule())
+    }
+
+    // MARK: - Volume Panel
+
+    private var volumePanel: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Volumes")
+                .font(.poppinsBold(size: 13))
+                .foregroundStyle(.white)
+
+            if engine.canSuppressVocals {
+                Toggle(isOn: Binding(
+                    get: { engine.vocalSuppressed },
+                    set: { engine.vocalSuppressed = $0 }
+                )) {
+                    Label("Dim Vocals", systemImage: "music.mic")
+                        .font(.poppinsMedium(size: 12))
+                }
+                .toggleStyle(.switch)
+                .tint(Color(red: 0.4, green: 0.8, blue: 1.0))
+            }
+        }
+        .foregroundStyle(.white)
+        .padding(14)
+        .frame(width: 200)
+        .background(Color.black.opacity(0.6))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Color(red: 0.4, green: 0.8, blue: 1.0).opacity(0.3), lineWidth: 1)
+        )
+        .transition(.scale(scale: 0.9).combined(with: .opacity))
+    }
+
+    // MARK: - Lyrics (Dominant Center)
+
+    private var lyricsBox: some View {
+        VStack(spacing: 16) {
+            if engine.lyrics.isEmpty {
+                Text("♪ Instrumental ♪")
+                    .font(.poppinsBold(size: 28))
+                    .foregroundStyle(.white.opacity(0.4))
+            } else {
+                ForEach(visibleLyricWindow, id: \.offset) { item in
+                    Text(lyricText(for: item.line.text))
+                        .font(item.isCurrent ? .poppinsBold(size: 36) : .poppinsMedium(size: 24))
+                        .foregroundStyle(item.isCurrent ? .white : .white.opacity(0.2))
+                        .multilineTextAlignment(.center)
+                        .lineLimit(3)
+                        .animation(.easeInOut(duration: 0.3), value: engine.currentLyricIndex)
+                }
+            }
+        }
+        .frame(maxWidth: 700)
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 20)
+    }
+
+    // MARK: - Bottom Controls
+
+    private var bottomControls: some View {
+        VStack(spacing: 12) {
+            // Progress bar
+            progressBar
+
+            // Controls row
+            HStack(spacing: 20) {
+                // Voice HUD (compact)
+                compactVoiceHUD
+
+                Spacer()
+
+                // Score display
+                if engine.isPerforming {
+                    HStack(spacing: 6) {
+                        Image(systemName: "star.fill")
+                            .font(.system(size: 14))
+                            .foregroundStyle(.yellow)
+                        Text("\(engine.overallScore)")
+                            .font(.orbitronBold(size: 18))
+                            .foregroundStyle(.white)
+                            .meloGlowText()
+                    }
+                }
+
+                Spacer()
+
+                // Finish button
+                if engine.isPerforming {
+                    Button {
+                        engine.stop()
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "stop.fill")
+                                .font(.system(size: 12))
+                            Text("FINISH")
+                                .font(.orbitronBold(size: 12))
+                        }
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 10)
+                        .background(
+                            Capsule()
+                                .fill(Color.red.opacity(0.7))
+                        )
+                        .overlay(
+                            Capsule()
+                                .stroke(Color.red.opacity(0.5), lineWidth: 1)
+                        )
+                        .shadow(color: .red.opacity(0.3), radius: 8)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+        .padding(16)
+        .background(Color.black.opacity(0.3))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color.white.opacity(0.08), lineWidth: 1)
+        )
+    }
+
+    // MARK: - Progress Bar
+
+    private var progressBar: some View {
+        GeometryReader { geo in
+            // Estimate duration from the last lyric timestamp + a buffer, or a fallback
+            let estimatedDuration: TimeInterval = {
+                if let lastLine = engine.lyrics.last {
+                    return lastLine.time + 15 // add ~15s buffer after last lyric
+                }
+                return max(180, engine.elapsed + 30) // fallback: 3 min or current + 30s
+            }()
+            let progress = min(1, engine.elapsed / max(1, estimatedDuration))
+
+            ZStack(alignment: .leading) {
+                // Track
+                Capsule()
+                    .fill(Color.white.opacity(0.1))
+                    .frame(height: 4)
+
+                // Fill
+                Capsule()
+                    .fill(
+                        LinearGradient(
+                            colors: [Color(red: 0.4, green: 0.8, blue: 1.0), Color(red: 0.6, green: 0.4, blue: 1.0)],
+                            startPoint: .leading, endPoint: .trailing
+                        )
+                    )
+                    .frame(width: geo.size.width * progress, height: 4)
+                    .animation(.linear(duration: 0.1), value: progress)
+
+                // Knob
+                Circle()
+                    .fill(Color(red: 0.4, green: 0.8, blue: 1.0))
+                    .frame(width: 10, height: 10)
+                    .offset(x: geo.size.width * progress - 5)
+                    .animation(.linear(duration: 0.1), value: progress)
+            }
+        }
+        .frame(height: 10)
+    }
+
+    // MARK: - Compact Voice HUD
+
+    private var compactVoiceHUD: some View {
+        let voice = engine.currentVoice
+        return HStack(spacing: 12) {
+            // Note name
+            Text(voice.isVoiced ? voice.noteName : "—")
+                .font(.orbitronBold(size: 14))
+                .foregroundStyle(voice.isVoiced ? .white : .white.opacity(0.3))
+                .frame(width: 40)
+
+            // Cents indicator (compact)
+            centsNeedle(cents: voice.centsOff)
+                .frame(width: 80, height: 14)
+
+            // Energy bar (compact)
+            energyMeter(db: voice.db)
+                .frame(width: 6, height: 24)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(Color.white.opacity(0.06))
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+    }
+
+    // MARK: - Song Artwork Helper
+
+    @ViewBuilder
+    private func songArtwork(size: CGFloat) -> some View {
+        if let urlString = song.artworkURLString, let url = URL(string: urlString) {
+            AsyncImage(url: url) { phase in
+                switch phase {
+                case .success(let image):
+                    image.resizable().aspectRatio(contentMode: .fill)
+                default:
+                    defaultSongArtwork(size: size)
+                }
+            }
+            .frame(width: size, height: size)
+            .clipShape(RoundedRectangle(cornerRadius: size > 80 ? 20 : 10))
+        } else {
+            defaultSongArtwork(size: size)
+                .frame(width: size, height: size)
+        }
+    }
+
+    private func defaultSongArtwork(size: CGFloat) -> some View {
+        let hue = Double(abs(song.title.hashValue) % 100) / 100.0
+        return RoundedRectangle(cornerRadius: size > 80 ? 20 : 10)
+            .fill(LinearGradient(
+                colors: [
+                    Color(hue: hue, saturation: 0.5, brightness: 0.7),
+                    Color(hue: hue, saturation: 0.65, brightness: 0.4),
+                ],
+                startPoint: .topLeading, endPoint: .bottomTrailing
+            ))
+            .frame(width: size, height: size)
+            .overlay {
+                Image(systemName: "music.note")
+                    .font(.system(size: size * 0.3))
+                    .foregroundStyle(.white.opacity(0.8))
+            }
+    }
+
+    // MARK: - Result Card
+
+    private func resultCard(_ summary: String) -> some View {
+        VStack(spacing: 24) {
+            Image(systemName: "sparkles")
+                .font(.system(size: 48))
+                .foregroundStyle(.yellow)
+                .meloGlowText(color: .yellow)
+
+            Text(summary)
+                .font(.poppinsBold(size: 18))
+                .foregroundStyle(.white)
+                .multilineTextAlignment(.center)
+
+            Text("\(engine.overallScore)")
+                .font(.orbitronBlack(size: 64))
                 .foregroundStyle(.white)
                 .meloGlowText()
-            if !playerName.isEmpty {
-                Text(playerName.uppercased())
-                    .font(.system(size: 14, weight: .bold, design: .monospaced))
-                    .foregroundStyle(Color(red: 0.4, green: 0.8, blue: 1.0))
+
+            scoreBreakdown
+
+            KemonPrimaryButton(title: "Continue", systemImage: "arrow.right") {
+                onFinish(engine.overallScore)
+            }
+        }
+        .padding(36)
+        .frame(maxWidth: 400)
+        .kemonGlassCard(24)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.black.opacity(0.6))
+    }
+
+    // MARK: - Score Breakdown
+
+    private var scoreBreakdown: some View {
+        HStack(spacing: 20) {
+            metric("Vibe", engine.score.normalizedScore)
+            if let voice = engine.voiceScore.normalizedScore {
+                metric("Voice", voice)
+                if let pitch = engine.voiceScore.inTuneness { metric("Pitch", pitch) }
+                if let timing = engine.voiceScore.timing { metric("Timing", timing) }
             }
         }
     }
 
-    private var emotionBadge: some View {
-        let reading = engine.currentReading
-        return VStack(alignment: .leading, spacing: 4) {
-            Label {
-                Text(reading.faceDetected ? reading.dominant.displayName : "No face")
-                    .font(.headline)
-            } icon: {
-                Image(systemName: reading.faceDetected ? reading.dominant.symbolName : "eye.slash")
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 8)
-            .background(.ultraThinMaterial, in: Capsule())
-            .foregroundStyle(.white)
+    private func metric(_ label: String, _ value: Int) -> some View {
+        VStack(spacing: 4) {
+            Text("\(value)")
+                .font(.orbitronBold(size: 18))
+                .foregroundStyle(.white)
+            Text(label)
+                .font(.poppinsMedium(size: 11))
+                .foregroundStyle(.white.opacity(0.5))
+        }
+    }
 
-            if !engine.usingTrainedModel {
-                Text("Placeholder model")
-                    .font(.caption2)
-                    .foregroundStyle(.yellow.opacity(0.9))
-                    .padding(.leading, 4)
-            }
+    // MARK: - Lyric Helpers
 
-            if Self.showsDebug {
-                debugReadout
+    private func lyricText(for text: String) -> String {
+        guard showRomanized else { return text }
+        return text.applyingTransform(.toLatin, reverse: false)?
+            .applyingTransform(.stripDiacritics, reverse: false) ?? text
+    }
+
+    private var hasNonLatinLyrics: Bool {
+        for line in engine.lyrics {
+            if let transformed = line.text.applyingTransform(.toLatin, reverse: false),
+               transformed != line.text {
+                return true
+            }
+        }
+        return false
+    }
+
+    /// The current line plus two of context on each side for the scrolling lyric display.
+    private var visibleLyricWindow: [(offset: Int, line: LyricLine, isCurrent: Bool)] {
+        guard !engine.lyrics.isEmpty else { return [] }
+        let current = engine.currentLyricIndex ?? -1
+        let range = (current - 2)...(current + 2)
+        return engine.lyrics.enumerated()
+            .filter { range.contains($0.offset) }
+            .map { (offset: $0.offset, line: $0.element, isCurrent: $0.offset == current) }
+    }
+
+    // MARK: - Voice Visualization Helpers
+
+    private func centsNeedle(cents: Double?) -> some View {
+        GeometryReader { geo in
+            let width = geo.size.width
+            let fraction = ((cents ?? 0) + 50) / 100
+            let accuracy = 1 - min(1, abs(cents ?? 50) / 50)
+            ZStack(alignment: .leading) {
+                Capsule().fill(.white.opacity(0.18)).frame(height: 3)
+                Rectangle().fill(.white.opacity(0.35))
+                    .frame(width: 1.5, height: 10)
+                    .position(x: width / 2, y: geo.size.height / 2)
+                if cents != nil {
+                    Circle()
+                        .fill(Color(hue: 0.0 + 0.33 * accuracy, saturation: 0.85, brightness: 1))
+                        .frame(width: 10, height: 10)
+                        .position(x: width * fraction, y: geo.size.height / 2)
+                        .animation(.easeOut(duration: 0.08), value: fraction)
+                }
             }
         }
     }
 
-    /// Raw model confidences + f0/smile readout for tuning against real faces.
-    /// Debug builds only, so release/demo builds stay clean.
+    private func energyMeter(db: Double) -> some View {
+        let level = min(1, max(0, (db + 60) / 60))
+        return GeometryReader { geo in
+            ZStack(alignment: .bottom) {
+                Capsule().fill(.white.opacity(0.18))
+                Capsule().fill(.green.opacity(0.85))
+                    .frame(height: geo.size.height * level)
+                    .animation(.easeOut(duration: 0.08), value: level)
+            }
+        }
+    }
+
+    // MARK: - Debug
+
     #if DEBUG
     private static let showsDebug = true
     #else
@@ -138,203 +649,9 @@ struct PerformanceView: View {
                         v.f0 ?? 0, v.noteName, v.centsOff ?? 0, v.db, v.confidence))
                 .foregroundStyle(.cyan)
         }
-        .font(.system(size: 11, design: .monospaced))
+        .font(.system(size: 9, design: .monospaced))
         .foregroundStyle(.white.opacity(0.85))
-        .padding(6)
-        .background(.black.opacity(0.35), in: RoundedRectangle(cornerRadius: 6))
-        .padding(.leading, 4)
-    }
-
-    // MARK: - Voice feedback
-
-    /// Live pitch (note + cents needle) and energy meter.
-    private var voiceHUD: some View {
-        let voice = engine.currentVoice
-        return HStack(spacing: 14) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(voice.isVoiced ? voice.noteName : "listening…")
-                    .font(.title3.weight(.bold).monospacedDigit())
-                if let cents = voice.centsOff {
-                    Text(String(format: "%+.0f cents", cents))
-                        .font(.caption2.monospacedDigit())
-                        .foregroundStyle(.white.opacity(0.7))
-                }
-            }
-            .frame(width: 96, alignment: .leading)
-
-            centsNeedle(cents: voice.centsOff)
-            energyMeter(db: voice.db)
-                .frame(width: 10)
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
-        .frame(maxWidth: .infinity)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14))
-        .foregroundStyle(.white)
-    }
-
-    /// A −50…+50 cents scale with a marker that greens as it nears the center.
-    private func centsNeedle(cents: Double?) -> some View {
-        GeometryReader { geo in
-            let width = geo.size.width
-            let fraction = ((cents ?? 0) + 50) / 100  // 0…1
-            let accuracy = 1 - min(1, abs(cents ?? 50) / 50)
-            ZStack(alignment: .leading) {
-                Capsule().fill(.white.opacity(0.18)).frame(height: 4)
-                Rectangle().fill(.white.opacity(0.35))
-                    .frame(width: 2, height: 14)
-                    .position(x: width / 2, y: geo.size.height / 2) // center = in-tune
-                if cents != nil {
-                    Circle()
-                        .fill(Color(hue: 0.0 + 0.33 * accuracy, saturation: 0.85, brightness: 1))
-                        .frame(width: 14, height: 14)
-                        .position(x: width * fraction, y: geo.size.height / 2)
-                        .animation(.easeOut(duration: 0.08), value: fraction)
-                }
-            }
-        }
-        .frame(height: 18)
-    }
-
-    /// Vertical loudness bar, −60…0 dBFS mapped to 0…1.
-    private func energyMeter(db: Double) -> some View {
-        let level = min(1, max(0, (db + 60) / 60))
-        return GeometryReader { geo in
-            ZStack(alignment: .bottom) {
-                Capsule().fill(.white.opacity(0.18))
-                Capsule().fill(.green.opacity(0.85))
-                    .frame(height: geo.size.height * level)
-                    .animation(.easeOut(duration: 0.08), value: level)
-            }
-        }
-    }
-
-    /// Vocal-suppress toggle for local songs; a headphones hint for MusicKit.
-    @ViewBuilder
-    private var vocalControls: some View {
-        if engine.canSuppressVocals {
-            Toggle(isOn: Binding(
-                get: { engine.vocalSuppressed },
-                set: { engine.vocalSuppressed = $0 }
-            )) {
-                Label("Dim vocals", systemImage: "music.mic")
-            }
-            .toggleStyle(.button)
-            .tint(.white)
-            .font(.subheadline)
-            .padding(.bottom, 4)
-        }
-    }
-
-    private var lyricsBox: some View {
-        VStack(spacing: 12) {
-            ForEach(visibleLyricWindow, id: \.offset) { item in
-                Text(lyricText(for: item.line.text))
-                    .font(item.isCurrent ? .title.bold() : .title3)
-                    .foregroundStyle(item.isCurrent ? vibeColor : .white.opacity(0.5))
-                    .multilineTextAlignment(.center)
-                    .animation(.easeInOut(duration: 0.2), value: vibeColor)
-            }
-            if engine.lyrics.isEmpty {
-                Text("♪ Instrumental ♪")
-                    .font(.title2)
-                    .foregroundStyle(.white.opacity(0.6))
-            }
-        }
-        .frame(maxWidth: .infinity)
-        .padding()
-    }
-
-    private func lyricText(for text: String) -> String {
-        guard showRomanized else { return text }
-        return text.applyingTransform(.toLatin, reverse: false)?
-            .applyingTransform(.stripDiacritics, reverse: false) ?? text
-    }
-
-    private var hasNonLatinLyrics: Bool {
-        for line in engine.lyrics {
-            if let transformed = line.text.applyingTransform(.toLatin, reverse: false),
-               transformed != line.text {
-                return true
-            }
-        }
-        return false
-    }
-
-    private var startStopButton: some View {
-        Button(role: .destructive) {
-            engine.stop()
-        } label: {
-            Label("Finish", systemImage: "stop.fill")
-                .font(.headline)
-                .padding(.horizontal, 24)
-                .padding(.vertical, 12)
-        }
-        .buttonStyle(.borderedProminent)
-        .buttonBorderShape(.capsule)
-        .tint(.red)
-    }
-
-    private func resultCard(_ summary: String) -> some View {
-        VStack(spacing: 20) {
-            Image(systemName: "sparkles")
-                .font(.system(size: 48))
-                .foregroundStyle(.yellow)
-                .meloGlowText(color: .yellow)
-            Text(summary)
-                .font(.system(size: 20, weight: .bold, design: .monospaced))
-                .foregroundStyle(.white)
-                .multilineTextAlignment(.center)
-            Text("\(engine.overallScore)")
-                .font(.system(size: 64, weight: .black, design: .monospaced))
-                .foregroundStyle(.white)
-                .meloGlowText()
-            scoreBreakdown
-            KemonPrimaryButton(title: "Continue", systemImage: "arrow.right") {
-                onFinish(engine.overallScore)
-            }
-        }
-        .padding(32)
-        .frame(maxWidth: 380)
-        .kemonGlassCard(24)
-        .padding()
-    }
-
-    /// Voice + vibe sub-scores under the overall percentage.
-    private var scoreBreakdown: some View {
-        HStack(spacing: 18) {
-            metric("Vibe", engine.score.normalizedScore)
-            if let voice = engine.voiceScore.normalizedScore {
-                metric("Voice", voice)
-                if let pitch = engine.voiceScore.inTuneness { metric("Pitch", pitch) }
-                if let timing = engine.voiceScore.timing { metric("Timing", timing) }
-            }
-        }
-    }
-
-    private func metric(_ label: String, _ value: Int) -> some View {
-        VStack(spacing: 2) {
-            Text("\(value)").font(.headline.monospacedDigit())
-            Text(label).font(.caption2).foregroundStyle(.secondary)
-        }
-    }
-
-    // MARK: - Derived UI state
-
-    /// Colour of the current lyric, interpolated by how well the expression
-    /// matches the target vibe (red → yellow → green).
-    private var vibeColor: Color {
-        let s = engine.score.lastSimilarity
-        return Color(hue: 0.0 + 0.33 * s, saturation: 0.85, brightness: 1.0)
-    }
-
-    /// The current line plus one of context on each side, for the scrolling box.
-    private var visibleLyricWindow: [(offset: Int, line: LyricLine, isCurrent: Bool)] {
-        guard !engine.lyrics.isEmpty else { return [] }
-        let current = engine.currentLyricIndex ?? -1
-        let range = (current - 1)...(current + 1)
-        return engine.lyrics.enumerated()
-            .filter { range.contains($0.offset) }
-            .map { (offset: $0.offset, line: $0.element, isCurrent: $0.offset == current) }
+        .padding(4)
+        .background(.black.opacity(0.5), in: RoundedRectangle(cornerRadius: 4))
     }
 }
