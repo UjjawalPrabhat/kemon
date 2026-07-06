@@ -14,5 +14,9 @@
 	<!-- Outbound network for Apple Music (MusicKit) and remote lyric lookup. -->
 	<key>com.apple.security.network.client</key>
 	<true/>
+	<!-- Read user-picked local audio files (imported songs), re-opened across
+	     launches via security-scoped bookmarks. -->
+	<key>com.apple.security.files.user-selected.read-only</key>
+	<true/>
 </dict>
 </plist>

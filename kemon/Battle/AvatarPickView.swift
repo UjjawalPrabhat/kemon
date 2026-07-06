@@ -69,6 +69,7 @@ struct AvatarPickView: View {
                 
                 LazyVGrid(columns: Array(repeating: GridItem(.fixed(108), spacing: 20), count: 6), spacing: 20) {
                     ForEach(Avatar.catalog) { avatar in
+                        let takenBy = takenByOtherPlayer(avatar)
                         Button {
                             battle.setAvatar(avatar, for: index)
                         } label: {
@@ -84,14 +85,29 @@ struct AvatarPickView: View {
                                             )
                                             .shadow(color: Color(red: 0.4, green: 0.8, blue: 1.0), radius: isAvatarSelectedForCurrentPlayer(avatar) ? 8 : 0)
                                     )
-                                
+
                                 Image(avatar.imageName)
                                     .resizable()
                                     .scaledToFit()
                                     .frame(width: 78, height: 78)
+
+                                // "Taken" badge for avatars another player already owns.
+                                if let takenBy {
+                                    Text("P\(takenBy + 1)")
+                                        .font(.poppinsBold(size: 10))
+                                        .foregroundStyle(.white)
+                                        .padding(.horizontal, 7)
+                                        .padding(.vertical, 3)
+                                        .background(Capsule().fill(Color.black.opacity(0.7)))
+                                        .overlay(Capsule().stroke(Color.white.opacity(0.3), lineWidth: 1))
+                                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                                        .padding(8)
+                                }
                             }
+                            .opacity(takenBy == nil ? 1 : 0.35)
                         }
                         .buttonStyle(.plain)
+                        .disabled(takenBy != nil)
                     }
                 }
             }
@@ -99,6 +115,13 @@ struct AvatarPickView: View {
             
             Spacer()
             
+            // Validation hint shown until every player has a name and avatar
+            if !battle.allPlayersReady {
+                Text("Every player needs a name and an avatar to start")
+                    .font(.poppinsBold(size: 12))
+                    .foregroundStyle(Color(red: 1.0, green: 0.55, blue: 0.55))
+            }
+
             // Bottom Action buttons
             HStack(spacing: 24) {
                 Button {
@@ -114,8 +137,8 @@ struct AvatarPickView: View {
                         )
                 }
                 .buttonStyle(.plain)
-                
-                KemonPrimaryButton(title: "START THE BATTLE") {
+
+                KemonPrimaryButton(title: "START THE BATTLE", isEnabled: battle.allPlayersReady) {
                     battle.confirmPlayers()
                 }
             }
@@ -128,6 +151,12 @@ struct AvatarPickView: View {
     private func isAvatarSelectedForCurrentPlayer(_ avatar: Avatar) -> Bool {
         guard battle.players.indices.contains(index) else { return false }
         return battle.players[index].avatar == avatar
+    }
+
+    /// The index of another player who's already claimed this avatar, if any —
+    /// used to lock it so two players can't share the same avatar.
+    private func takenByOtherPlayer(_ avatar: Avatar) -> Int? {
+        battle.players.indices.first { $0 != index && battle.players[$0].avatar == avatar }
     }
 }
 

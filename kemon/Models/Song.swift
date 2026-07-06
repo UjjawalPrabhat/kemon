@@ -26,6 +26,33 @@ enum SongGenre: String, Codable, CaseIterable, Sendable {
         }
     }
 
+    /// An SF Symbol representing the genre, used on the genre browse cards.
+    var symbol: String {
+        switch self {
+        case .popEnergetic: return "bolt.fill"
+        case .balladSad:    return "cloud.rain.fill"
+        case .upliftingJoy: return "sun.max.fill"
+        case .chill:        return "moon.stars.fill"
+        }
+    }
+
+    /// Best-effort mapping from free-form genre tag(s) — as reported by Apple
+    /// Music (`genreNames`) or embedded in a local file's metadata — onto one of
+    /// our four scoring buckets. Falls back to `.chill` when nothing matches.
+    static func classify(from names: [String]) -> SongGenre {
+        let text = names.joined(separator: " ").lowercased()
+        func has(_ keywords: [String]) -> Bool { keywords.contains { text.contains($0) } }
+
+        if has(["ballad", "sad", "blues", "melanchol", "slow", "emo", "requiem"]) { return .balladSad }
+        if has(["dance", "edm", "electro", "house", "techno", "disco", "funk",
+                "party", "gospel", "uplift", "happy", "joy", "reggae", "afrobeat"]) { return .upliftingJoy }
+        if has(["pop", "rock", "metal", "punk", "hip hop", "hip-hop", "hiphop",
+                "rap", "trap", "k-pop", "kpop", "dubstep", "energetic", "workout"]) { return .popEnergetic }
+        if has(["chill", "lo-fi", "lofi", "r&b", "rnb", "soul", "jazz", "ambient",
+                "acoustic", "indie", "folk", "neo", "classical", "downtempo"]) { return .chill }
+        return .chill
+    }
+
     /// Weighted profile over emotions the singer should express for this genre.
     /// Weights need not sum to 1 — the ScoringMatrix normalises via cosine
     /// similarity, so only the *shape* matters.
@@ -79,6 +106,10 @@ final class Song {
     /// Security-scoped bookmark for an imported file (nil for bundled/Apple Music).
     var importedBookmark: Data?
 
+    /// Whether the user has starred this song. Defaults to false so adding it is
+    /// an automatic lightweight SwiftData migration for existing rows.
+    var isFavourite: Bool = false
+
     /// MusicKit item id for an Apple Music song (nil otherwise).
     var appleMusicID: String?
     
@@ -100,8 +131,15 @@ final class Song {
     var importedURL: URL? {
         guard let importedBookmark else { return nil }
         var stale = false
+        // macOS sandbox requires security-scoped bookmarks; the resolve options
+        // must match how the bookmark was created (see SongImporter).
+        #if os(macOS)
+        let options: URL.BookmarkResolutionOptions = [.withSecurityScope]
+        #else
+        let options: URL.BookmarkResolutionOptions = []
+        #endif
         guard let url = try? URL(resolvingBookmarkData: importedBookmark,
-                                 options: [],
+                                 options: options,
                                  relativeTo: nil,
                                  bookmarkDataIsStale: &stale) else { return nil }
         _ = url.startAccessingSecurityScopedResource()

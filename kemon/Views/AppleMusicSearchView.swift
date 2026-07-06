@@ -237,7 +237,7 @@ struct AppleMusicSearchView: View {
             title: song.title,
             artist: song.artistName,
             audioFileName: "",
-            genre: .chill,
+            genre: SongGenre.classify(from: song.genreNames),
             lyrics: [],
             source: .appleMusic,
             appleMusicID: song.id.rawValue,

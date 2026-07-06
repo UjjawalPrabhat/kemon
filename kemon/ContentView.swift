@@ -32,14 +32,17 @@ struct ContentView: View {
             TurnOrderView(battle: battle)
         case .roundIntro:
             RoundIntroView(battle: battle)
+                .battleLobby(battle)
         case .songPick:
             SongPickView(battle: battle)
+                .battleLobby(battle, showButton: false)   // uses its own sidebar Lobby button
         case .performing:
             if let song = battle.selectedSong {
                 PerformanceView(
                     song: song,
                     playerName: battle.currentPlayer?.displayName ?? "",
-                    avatarImageName: battle.currentPlayer?.avatar?.imageName ?? ""
+                    avatarImageName: battle.currentPlayer?.avatar?.imageName ?? "",
+                    onCancel: { battle.changeSong() }
                 ) { result in
                     battle.showResult(result)
                 }
@@ -52,6 +55,7 @@ struct ContentView: View {
             }
         case .result:
             ResultView(battle: battle)
+                .battleLobby(battle)
         case .winners:
             WinnersView(battle: battle)
         }

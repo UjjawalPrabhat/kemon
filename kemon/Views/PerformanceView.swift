@@ -16,6 +16,8 @@ struct PerformanceView: View {
     var playerName: String = ""
     /// Avatar image name for the current player.
     var avatarImageName: String = ""
+    /// Called when the singer backs out to pick a different song (no scoring).
+    var onCancel: () -> Void = {}
     /// Called with the final score breakdown when the singer taps Continue.
     var onFinish: (TurnResult) -> Void = { _ in }
 
@@ -55,6 +57,32 @@ struct PerformanceView: View {
                 facialExpression: engine.score.normalizedScore
             ))
         }
+    }
+
+    // MARK: - Change Song button
+
+    /// Backs out of this performance to reselect a song. Sets `didFinish` so the
+    /// engine's teardown (via `onDisappear`) can't fire `onFinish` and score the
+    /// abandoned track.
+    private var changeSongButton: some View {
+        Button {
+            didFinish = true
+            engine.stop()
+            onCancel()
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 12, weight: .bold))
+                Text("CHANGE SONG")
+                    .font(.orbitronBold(size: 11))
+            }
+            .foregroundStyle(.white)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+            .background(Capsule().fill(Color.white.opacity(0.12)))
+            .overlay(Capsule().stroke(Color.white.opacity(0.25), lineWidth: 1))
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: - Loading Overlay
@@ -118,158 +146,186 @@ struct PerformanceView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .kemonPage(showPlanet: false, showCockpit: false, ufoStyle: .none)
+        .overlay(alignment: .topLeading) {
+            changeSongButton
+                .padding(.top, 16)
+                .padding(.leading, 24)
+        }
     }
 
     // MARK: - Live Karaoke Stage
 
+    // Bright cyan / deep blue used for the player + song cards (matches ResultView).
+    private static let cardCyan = Color(red: 0.24, green: 0.85, blue: 1.0)
+    private static let inkBlue = Color(red: 0.184, green: 0.282, blue: 0.647)
+
     private var karaokeStage: some View {
-        ZStack(alignment: .topLeading) {
-            // Space background
+        ZStack {
+            // Space background (planet + moon + drifting UFO, matching the design)
             Color.clear
-                .kemonPage(showPlanet: false, showCockpit: false, ufoStyle: .none)
+                .kemonPage(showPlanet: true, showMoon: true, showCockpit: false, ufoStyle: .purpleRed)
 
+            // Center lyrics + bottom playback bar
             VStack(spacing: 0) {
-                // Top bar: PiP camera + song info + controls
-                topBar
-                    .padding(.top, 16)
-                    .padding(.horizontal, 24)
+                Spacer(minLength: 140)
 
-                Spacer()
-
-                // Dominant centered lyrics
                 lyricsBox
                     .padding(.horizontal, 40)
 
-                Spacer()
+                Spacer(minLength: 24)
 
-                // Bottom controls
-                bottomControls
+                playbackBar
+                    .frame(maxWidth: 880)
                     .padding(.horizontal, 24)
-                    .padding(.bottom, 24)
+                    .padding(.bottom, 28)
+            }
+        }
+        // Top-left: change song
+        .overlay(alignment: .topLeading) {
+            changeSongButton
+                .padding(.top, 16)
+                .padding(.leading, 24)
+        }
+        // Top-center: player card + song card
+        .overlay(alignment: .top) {
+            playerSongCard
+                .padding(.top, 16)
+                .padding(.horizontal, 220) // clear the corner controls
+        }
+        // Top-right: mirrored camera preview
+        .overlay(alignment: .topTrailing) {
+            cameraPip
+                .padding(.top, 16)
+                .padding(.trailing, 24)
+        }
+        // Bottom-right: volumes panel pops over when opened
+        .overlay(alignment: .bottomTrailing) {
+            if showVolumePanel {
+                volumePanel
+                    .padding(.trailing, 24)
+                    .padding(.bottom, 120)
             }
         }
     }
 
-    // MARK: - Top Bar
+    // MARK: - Top: Player + Song card (centered)
 
-    private var topBar: some View {
-        HStack(alignment: .top, spacing: 16) {
-            // PiP Camera Preview
-            ZStack(alignment: .bottomTrailing) {
-                CameraPreview(session: engine.camera.session)
-                    .frame(width: 180, height: 135)
-                    .clipShape(RoundedRectangle(cornerRadius: 14))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 14)
-                            .stroke(Color(red: 0.4, green: 0.8, blue: 1.0).opacity(0.4), lineWidth: 1.5)
-                    )
-                    .shadow(color: Color(red: 0.4, green: 0.8, blue: 1.0).opacity(0.2), radius: 8)
+    private var playerSongCard: some View {
+        HStack(spacing: 14) {
+            // Player card (cyan)
+            VStack(spacing: 8) {
+                Text(playerName.isEmpty ? "Singer" : playerName)
+                    .font(.poppinsBold(size: 13))
+                    .foregroundStyle(Self.inkBlue)
+                    .lineLimit(1)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 4)
+                    .background(Capsule().stroke(Self.inkBlue, lineWidth: 1.5))
 
-                // Emotion badge overlay on camera
-                emotionBadgeCompact
-                    .offset(x: -6, y: -6)
+                avatarSquare(size: 52)
             }
+            .padding(10)
+            .background(RoundedRectangle(cornerRadius: 18).fill(Self.cardCyan))
+            .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.kemonBlue, lineWidth: 2))
+            .shadow(color: Color.kemonBlue.opacity(0.4), radius: 10)
 
-            // Song info + player badge
-            VStack(alignment: .leading, spacing: 8) {
-                // Player name badge
-                if !playerName.isEmpty {
-                    HStack(spacing: 6) {
-                        if !avatarImageName.isEmpty {
-                            Image(avatarImageName)
-                                .resizable()
-                                .scaledToFill()
-                                .frame(width: 24, height: 24)
-                                .clipShape(Circle())
-                        }
-                        Text(playerName.uppercased())
-                            .font(.poppinsBold(size: 11))
-                            .foregroundStyle(Color(red: 0.4, green: 0.8, blue: 1.0))
-                    }
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 5)
-                    .background(
-                        Capsule()
-                            .fill(Color(red: 0.4, green: 0.8, blue: 1.0).opacity(0.1))
-                    )
-                    .overlay(
-                        Capsule()
-                            .stroke(Color(red: 0.4, green: 0.8, blue: 1.0).opacity(0.3), lineWidth: 1)
-                    )
-                }
+            // Song card (dark, cyan border)
+            HStack(spacing: 14) {
+                songArtwork(size: 54)
+                    .grayscale(1.0)
 
-                // Song details with artwork
-                HStack(spacing: 12) {
-                    songArtwork(size: 48)
-
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(song.title)
-                            .font(.poppinsBold(size: 15))
-                            .foregroundStyle(.white)
-                            .lineLimit(1)
-                        Text(song.artist)
-                            .font(.poppinsMedium(size: 12))
-                            .foregroundStyle(.white.opacity(0.5))
-                            .lineLimit(1)
-                    }
-                }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .background(Color.white.opacity(0.06))
-                .clipShape(RoundedRectangle(cornerRadius: 12))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12)
-                        .stroke(Color.white.opacity(0.1), lineWidth: 1)
-                )
-            }
-
-            Spacer()
-
-            // Right controls: Romanize + Volume
-            VStack(alignment: .trailing, spacing: 8) {
-                if hasNonLatinLyrics {
-                    Button {
-                        showRomanized.toggle()
-                    } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: "character.bubble")
-                            Text(showRomanized ? "Original" : "Romanize")
-                                .font(.poppinsBold(size: 11))
-                        }
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(song.title)
+                        .font(.poppinsBold(size: 20))
                         .foregroundStyle(.white)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(Color.white.opacity(0.1), in: Capsule())
-                        .overlay(Capsule().stroke(Color.white.opacity(0.2), lineWidth: 1))
-                    }
-                    .buttonStyle(.plain)
+                        .lineLimit(1)
+                    Text(song.artist)
+                        .font(.poppinsMedium(size: 13))
+                        .foregroundStyle(Color.kemonBlue)
+                        .lineLimit(1)
                 }
-
-                // Volume panel toggle
-                Button {
-                    withAnimation(.spring(duration: 0.3)) {
-                        showVolumePanel.toggle()
-                    }
-                } label: {
-                    Image(systemName: "slider.horizontal.3")
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundStyle(.white.opacity(0.7))
-                        .frame(width: 36, height: 36)
-                        .background(Color.white.opacity(0.1), in: Circle())
-                }
-                .buttonStyle(.plain)
-
-                if showVolumePanel {
-                    volumePanel
-                }
-
-                #if DEBUG
-                if Self.showsDebug {
-                    debugReadout
-                }
-                #endif
+                .padding(.trailing, 8)
             }
+            .padding(12)
+            .background(RoundedRectangle(cornerRadius: 18).fill(Color.black.opacity(0.55)))
+            .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.kemonBlue, lineWidth: 2))
+            .shadow(color: Color.kemonBlue.opacity(0.4), radius: 10)
         }
+        .fixedSize()
+    }
+
+    // MARK: - Top-right: Camera PiP (mirrored, avatar + emotion overlaid)
+
+    private var cameraPip: some View {
+        VStack(alignment: .trailing, spacing: 8) {
+            CameraPreview(session: engine.camera.session)
+                .frame(width: 200, height: 150)
+                .scaleEffect(x: -1, y: 1)  // mirror like a selfie
+                .clipShape(RoundedRectangle(cornerRadius: 14))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14)
+                        .stroke(Color.kemonBlue.opacity(0.4), lineWidth: 1.5)
+                )
+                // Player avatar, on the preview (top-left)
+                .overlay(alignment: .topLeading) {
+                    avatarCircle(size: 36)
+                        .padding(8)
+                }
+                // Emotion badge (bottom-right)
+                .overlay(alignment: .bottomTrailing) {
+                    emotionBadgeCompact
+                        .padding(8)
+                }
+                .shadow(color: Color.kemonBlue.opacity(0.2), radius: 8)
+
+            if hasNonLatinLyrics {
+                romanizeButton
+            }
+
+            #if DEBUG
+            if Self.showsDebug {
+                debugReadout
+            }
+            #endif
+        }
+    }
+
+    private var romanizeButton: some View {
+        Button {
+            showRomanized.toggle()
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "character.bubble")
+                Text(showRomanized ? "Original" : "Romanize")
+                    .font(.poppinsBold(size: 11))
+            }
+            .foregroundStyle(.white)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(Color.white.opacity(0.1), in: Capsule())
+            .overlay(Capsule().stroke(Color.white.opacity(0.2), lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: - Avatar helpers
+
+    @ViewBuilder
+    private func avatarSquare(size: CGFloat) -> some View {
+        if !avatarImageName.isEmpty {
+            Image(avatarImageName).resizable().scaledToFit().frame(width: size, height: size)
+        } else {
+            Image("avatar-placeholder").resizable().scaledToFit()
+                .frame(width: size * 0.7, height: size * 0.7).opacity(0.4)
+        }
+    }
+
+    private func avatarCircle(size: CGFloat) -> some View {
+        avatarSquare(size: size * 0.8)
+            .frame(width: size, height: size)
+            .background(Circle().fill(Color.black.opacity(0.5)))
+            .clipShape(Circle())
+            .overlay(Circle().stroke(Color.kemonBlue.opacity(0.7), lineWidth: 1.5))
     }
 
     // MARK: - Compact Emotion Badge
@@ -291,32 +347,57 @@ struct PerformanceView: View {
     // MARK: - Volume Panel
 
     private var volumePanel: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 16) {
             Text("Volumes")
-                .font(.poppinsBold(size: 13))
+                .font(.poppinsBold(size: 16))
                 .foregroundStyle(.white)
 
             if engine.canSuppressVocals {
-                Toggle(isOn: Binding(
-                    get: { engine.vocalSuppressed },
-                    set: { engine.vocalSuppressed = $0 }
-                )) {
-                    Label("Dim Vocals", systemImage: "music.mic")
-                        .font(.poppinsMedium(size: 12))
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Text("Lead Vocals")
+                            .font(.poppinsMedium(size: 14))
+                            .foregroundStyle(.white)
+                        Spacer()
+                        Text(engine.vocalSuppressed ? "0%" : "100%")
+                            .font(.poppinsBold(size: 14))
+                            .foregroundStyle(Color.kemonBlue)
+                    }
+                    // The engine only toggles vocals on/off, so this slider snaps
+                    // between full and muted rather than being continuous.
+                    Slider(
+                        value: Binding(
+                            get: { engine.vocalSuppressed ? 0 : 100 },
+                            set: { engine.vocalSuppressed = $0 < 50 }
+                        ),
+                        in: 0...100
+                    )
+                    .tint(Color.kemonBlue)
                 }
-                .toggleStyle(.switch)
-                .tint(Color(red: 0.4, green: 0.8, blue: 1.0))
+            } else {
+                Text("Vocal control isn't available for this track.")
+                    .font(.poppinsMedium(size: 12))
+                    .foregroundStyle(.white.opacity(0.55))
             }
         }
         .foregroundStyle(.white)
-        .padding(14)
-        .frame(width: 200)
-        .background(Color.black.opacity(0.6))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(Color(red: 0.4, green: 0.8, blue: 1.0).opacity(0.3), lineWidth: 1)
+        .padding(20)
+        .frame(width: 300)
+        .background(
+            LinearGradient(
+                colors: [
+                    Color(red: 0.10, green: 0.12, blue: 0.30).opacity(0.96),
+                    Color(red: 0.18, green: 0.10, blue: 0.32).opacity(0.96)
+                ],
+                startPoint: .topLeading, endPoint: .bottomTrailing
+            )
         )
+        .clipShape(RoundedRectangle(cornerRadius: 20))
+        .overlay(
+            RoundedRectangle(cornerRadius: 20)
+                .stroke(Color.kemonBlue.opacity(0.6), lineWidth: 1.5)
+        )
+        .shadow(color: Color.kemonBlue.opacity(0.3), radius: 18)
         .transition(.scale(scale: 0.9).combined(with: .opacity))
     }
 
@@ -344,21 +425,19 @@ struct PerformanceView: View {
         .padding(.vertical, 20)
     }
 
-    // MARK: - Bottom Controls
+    // MARK: - Bottom Playback Bar (centered)
 
-    private var bottomControls: some View {
+    private var playbackBar: some View {
         VStack(spacing: 12) {
-            // Progress bar
             progressBar
 
-            // Controls row
-            HStack(spacing: 20) {
-                // Voice HUD (compact)
+            HStack(spacing: 18) {
+                // Live pitch HUD (compact)
                 compactVoiceHUD
 
-                Spacer()
+                Spacer(minLength: 12)
 
-                // Score display
+                // Live score
                 if engine.isPerforming {
                     HStack(spacing: 6) {
                         Image(systemName: "star.fill")
@@ -371,43 +450,58 @@ struct PerformanceView: View {
                     }
                 }
 
-                Spacer()
+                Spacer(minLength: 12)
 
-                // Finish button
+                // Volumes toggle (matches the design's sliders icon)
+                volumesToggleButton
+
+                // Finish
                 if engine.isPerforming {
-                    Button {
-                        engine.stop()
-                    } label: {
-                        HStack(spacing: 8) {
-                            Image(systemName: "stop.fill")
-                                .font(.system(size: 12))
-                            Text("FINISH")
-                                .font(.orbitronBold(size: 12))
-                        }
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 10)
-                        .background(
-                            Capsule()
-                                .fill(Color.red.opacity(0.7))
-                        )
-                        .overlay(
-                            Capsule()
-                                .stroke(Color.red.opacity(0.5), lineWidth: 1)
-                        )
-                        .shadow(color: .red.opacity(0.3), radius: 8)
-                    }
-                    .buttonStyle(.plain)
+                    finishButton
                 }
             }
         }
         .padding(16)
-        .background(Color.black.opacity(0.3))
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .background(Color.black.opacity(0.35))
+        .clipShape(RoundedRectangle(cornerRadius: 20))
         .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(Color.white.opacity(0.08), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 20)
+                .stroke(Color.white.opacity(0.1), lineWidth: 1)
         )
+    }
+
+    private var volumesToggleButton: some View {
+        Button {
+            withAnimation(.spring(duration: 0.3)) { showVolumePanel.toggle() }
+        } label: {
+            Image(systemName: "slider.horizontal.3")
+                .font(.system(size: 16, weight: .bold))
+                .foregroundStyle(showVolumePanel ? Color.kemonBlue : .white.opacity(0.7))
+                .frame(width: 40, height: 40)
+                .background(Color.white.opacity(0.1), in: Circle())
+                .overlay(Circle().stroke(showVolumePanel ? Color.kemonBlue.opacity(0.6) : .clear, lineWidth: 1.5))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var finishButton: some View {
+        Button {
+            engine.stop()
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "stop.fill")
+                    .font(.system(size: 12))
+                Text("FINISH")
+                    .font(.orbitronBold(size: 12))
+            }
+            .foregroundStyle(.white)
+            .padding(.horizontal, 20)
+            .padding(.vertical, 10)
+            .background(Capsule().fill(Color.red.opacity(0.7)))
+            .overlay(Capsule().stroke(Color.red.opacity(0.5), lineWidth: 1))
+            .shadow(color: .red.opacity(0.3), radius: 8)
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: - Progress Bar

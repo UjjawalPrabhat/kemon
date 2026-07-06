@@ -9,21 +9,41 @@
 
 import SwiftUI
 import SwiftData
+import UniformTypeIdentifiers
 
 struct SongPickView: View {
     var battle: BattleController
 
+    @Environment(\.modelContext) private var modelContext
     @Query(sort: \Song.title) private var songs: [Song]
     @State private var search = ""
     @State private var activeTab: ActiveTab = .discover
     @State private var showingAppleMusic = false
 
+    /// Five songs highlighted at the top of Discover — a random slice of the
+    /// catalog, chosen once when the screen appears.
+    @State private var topHits: [Song] = []
+    /// The genre the user has drilled into on the Genre tab (nil = grid of genres).
+    @State private var selectedGenre: SongGenre?
+    /// Local-file import state.
+    @State private var showingFileImporter = false
+    @State private var importError: String?
+    @State private var isImporting = false
+
     enum ActiveTab {
         case discover
         case genre
-        case topCharts
         case favourites
-        case addSong
+    }
+
+    private var favourites: [Song] { songs.filter(\.isFavourite) }
+
+    /// Songs grouped by genre, only genres that actually have songs.
+    private var songsByGenre: [(genre: SongGenre, songs: [Song])] {
+        SongGenre.allCases.compactMap { genre in
+            let matches = songs.filter { $0.genre == genre }
+            return matches.isEmpty ? nil : (genre, matches)
+        }
     }
 
     private var filtered: [Song] {
@@ -38,17 +58,88 @@ struct SongPickView: View {
         HStack(spacing: 0) {
             // Left Navigation Sidebar (pinned fixed width)
             sidebarView
-            
+
             // Right Main Content View (fully scrollable, maximized width)
             mainContentView
         }
         .foregroundStyle(.white)
         .kemonPage(showPlanet: false, showCockpit: false)
+        .overlay(alignment: .bottomTrailing) { uploadButton }
         #if canImport(MusicKit)
         .sheet(isPresented: $showingAppleMusic) {
             AppleMusicSearchView()
         }
         #endif
+        .fileImporter(
+            isPresented: $showingFileImporter,
+            allowedContentTypes: SongImporter.contentTypes,
+            allowsMultipleSelection: false
+        ) { result in
+            handleImport(result)
+        }
+        .alert("Couldn't add that file", isPresented: Binding(
+            get: { importError != nil },
+            set: { if !$0 { importError = nil } }
+        )) {
+            Button("OK", role: .cancel) { importError = nil }
+        } message: {
+            Text(importError ?? "")
+        }
+        .onAppear {
+            if topHits.isEmpty { topHits = Array(songs.shuffled().prefix(5)) }
+        }
+    }
+
+    // MARK: - Local file upload
+
+    /// A floating action button (bottom-right) to import a song from the device.
+    private var uploadButton: some View {
+        Button {
+            showingFileImporter = true
+        } label: {
+            HStack(spacing: 10) {
+                if isImporting {
+                    ProgressView().controlSize(.small).tint(.white)
+                } else {
+                    Image(systemName: "square.and.arrow.up.fill")
+                        .font(.system(size: 16, weight: .bold))
+                }
+                Text(isImporting ? "ADDING…" : "UPLOAD SONG")
+                    .font(.orbitronBold(size: 13))
+            }
+            .foregroundStyle(.white)
+            .padding(.horizontal, 22)
+            .padding(.vertical, 16)
+            .background(
+                LinearGradient(
+                    colors: [Color(red: 0.4, green: 0.8, blue: 1.0), Color(red: 0.2, green: 0.45, blue: 0.9)],
+                    startPoint: .topLeading, endPoint: .bottomTrailing
+                ),
+                in: Capsule()
+            )
+            .shadow(color: Color(red: 0.4, green: 0.8, blue: 1.0).opacity(0.5), radius: 14, y: 4)
+        }
+        .buttonStyle(.plain)
+        .disabled(isImporting)
+        .padding(.trailing, 40)
+        .padding(.bottom, 32)
+    }
+
+    private func handleImport(_ result: Result<[URL], Error>) {
+        switch result {
+        case .failure(let error):
+            importError = error.localizedDescription
+        case .success(let urls):
+            guard let url = urls.first else { return }
+            isImporting = true
+            Task {
+                let song = await SongImporter.importFile(at: url, into: modelContext)
+                isImporting = false
+                if song == nil {
+                    importError = "Couldn't read that audio file. Try an .mp3, .m4a, or .wav."
+                }
+            }
+        }
     }
 
     // MARK: - Sidebar Layout
@@ -75,32 +166,27 @@ struct SongPickView: View {
                 }
                 sidebarButton(title: "GENRE", icon: "guitars", isActive: activeTab == .genre) {
                     activeTab = .genre
-                }
-                sidebarButton(title: "TOP CHARTS", icon: "chart.bar", isActive: activeTab == .topCharts) {
-                    activeTab = .topCharts
+                    selectedGenre = nil
                 }
             }
-            
+
             // Library Tab section
             VStack(alignment: .leading, spacing: 14) {
                 Text("LIBRARY")
                     .font(.orbitronBold(size: 11))
                     .foregroundStyle(.white.opacity(0.4))
                     .padding(.leading, 12)
-                
+
                 sidebarButton(title: "FAVOURITES", icon: "star", isActive: activeTab == .favourites) {
                     activeTab = .favourites
-                }
-                sidebarButton(title: "ADD YOUR SONG", icon: "plus.circle", isActive: activeTab == .addSong) {
-                    activeTab = .addSong
                 }
             }
             
             Spacer()
             
-            // Back to lobby button
+            // Open the in-game Lobby (progress, turn order, exit).
             Button {
-                battle.startBattle()
+                battle.openLobby()
             } label: {
                 HStack(spacing: 8) {
                     Image(systemName: "chevron.backward")
@@ -200,12 +286,8 @@ struct SongPickView: View {
                         discoverView
                     case .genre:
                         genreView
-                    case .topCharts:
-                        topChartsView
                     case .favourites:
                         favouritesView
-                    case .addSong:
-                        addSongView
                     }
                 }
             }
@@ -288,68 +370,57 @@ struct SongPickView: View {
                 }
                 .buttonStyle(.plain)
                 
-                // TOP ALBUMS Horizontal Strip
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack {
-                        Text("TOP ALBUMS")
+                // TOP HITS — a handful of highlighted tracks as artwork tiles.
+                if !topHits.isEmpty {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("TOP HITS")
                             .font(.orbitronBold(size: 13))
                             .foregroundStyle(.white.opacity(0.5))
-                        
-                        Spacer()
-                        
-                        Button {} label: {
-                            Text("See All")
-                                .font(.poppinsBold(size: 11))
-                                .foregroundStyle(Color(red: 0.4, green: 0.8, blue: 1.0))
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 3)
-                                .background(
-                                    Capsule()
-                                        .stroke(Color(red: 0.4, green: 0.8, blue: 1.0), lineWidth: 1)
-                                )
-                        }
-                        .buttonStyle(.plain)
-                    }
-                    
-                    HStack(spacing: 16) {
-                        Image(systemName: "chevron.left")
-                            .font(.title3.weight(.bold))
-                            .foregroundStyle(.white.opacity(0.3))
-                        
-                        ForEach(songs.prefix(5)) { song in
-                            Button {
-                                battle.pickSong(song)
-                            } label: {
-                                artwork(for: song, size: 94)
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 12)
-                                            .stroke(Color.white.opacity(0.12), lineWidth: 1)
-                                    )
+
+                        HStack(spacing: 16) {
+                            ForEach(topHits) { song in
+                                Button {
+                                    battle.pickSong(song)
+                                } label: {
+                                    VStack(alignment: .leading, spacing: 6) {
+                                        artwork(for: song, size: 94)
+                                            .overlay(
+                                                RoundedRectangle(cornerRadius: 12)
+                                                    .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                                            )
+                                        Text(song.title)
+                                            .font(.poppinsBold(size: 11))
+                                            .foregroundStyle(.white)
+                                            .lineLimit(1)
+                                            .frame(width: 94, alignment: .leading)
+                                    }
+                                }
+                                .buttonStyle(.plain)
                             }
-                            .buttonStyle(.plain)
                         }
-                        
-                        Image(systemName: "chevron.right")
-                            .font(.title3.weight(.bold))
-                            .foregroundStyle(.white.opacity(0.3))
                     }
                 }
-                
-                // RECOMMENDATIONS FOR YOU Vertical Row list
+
+                // ALL SONGS — the full catalog.
                 VStack(alignment: .leading, spacing: 10) {
-                    Text("RECOMMENDATIONS FOR YOU")
+                    Text("ALL SONGS")
                         .font(.orbitronBold(size: 13))
                         .foregroundStyle(.white.opacity(0.5))
-                    
-                    VStack(spacing: 8) {
-                        ForEach(Array(songs.prefix(4).enumerated()), id: \.element.id) { index, song in
-                            recommendationRow(index: index, song: song)
-                        }
-                    }
+
+                    songList(songs)
                 }
             }
             .padding(.horizontal, 32)
             .padding(.bottom, 24)
+        }
+    }
+
+    /// A vertical list of song rows with a stable "00, 01, …" counter.
+    private func songList(_ list: [Song]) -> some View {
+        VStack(spacing: 8) {
+            ForEach(Array(list.enumerated()), id: \.element.id) { index, song in
+                recommendationRow(index: index, song: song)
+            }
         }
     }
 
@@ -360,34 +431,45 @@ struct SongPickView: View {
                 .font(.orbitronBold(size: 12))
                 .foregroundStyle(.white.opacity(0.4))
                 .frame(width: 24)
-            
-            // Action button placeholder
-            Button {} label: {
-                Image(systemName: "plus")
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundStyle(.white.opacity(0.6))
+
+            // Favourite toggle
+            Button {
+                toggleFavourite(song)
+            } label: {
+                Image(systemName: song.isFavourite ? "star.fill" : "star")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(song.isFavourite ? Color.yellow : Color.white.opacity(0.5))
             }
             .buttonStyle(.plain)
-            
+
             // Circle bubble artwork
             artwork(for: song, size: 34)
                 .clipShape(Circle())
-            
+
             // Details
             VStack(alignment: .leading, spacing: 2) {
                 Text(song.title)
                     .font(.poppinsBold(size: 13))
                     .foregroundStyle(.white)
                     .lineLimit(1)
-                
-                Text(song.artist)
-                    .font(.caption)
-                    .foregroundStyle(.white.opacity(0.5))
-                    .lineLimit(1)
+
+                HStack(spacing: 6) {
+                    Text(song.artist)
+                        .font(.caption)
+                        .foregroundStyle(.white.opacity(0.5))
+                        .lineLimit(1)
+                    if song.source == .imported {
+                        Text("LOCAL")
+                            .font(.system(size: 8, weight: .bold))
+                            .foregroundStyle(.white.opacity(0.7))
+                            .padding(.horizontal, 5).padding(.vertical, 1)
+                            .background(Capsule().fill(Color.white.opacity(0.12)))
+                    }
+                }
             }
-            
+
             Spacer()
-            
+
             // Custom SING button
             Button {
                 battle.pickSong(song)
@@ -409,6 +491,11 @@ struct SongPickView: View {
         .padding(.horizontal, 12)
         .background(Color.white.opacity(0.04))
         .clipShape(RoundedRectangle(cornerRadius: 10))
+    }
+
+    private func toggleFavourite(_ song: Song) {
+        song.isFavourite.toggle()
+        try? modelContext.save()
     }
 
     // MARK: - Search Results Tab
@@ -481,9 +568,39 @@ struct SongPickView: View {
                     .foregroundStyle(.white.opacity(0.5))
                     .padding(.top, 10)
             } else {
-                VStack(spacing: 8) {
-                    ForEach(Array(filtered.enumerated()), id: \.element.id) { index, song in
-                        recommendationRow(index: index, song: song)
+                songList(filtered)
+            }
+        }
+        .padding(.horizontal, 32)
+    }
+
+    // MARK: - Genre Tab (browse by genre, then drill into one)
+    @ViewBuilder
+    private var genreView: some View {
+        if let selectedGenre {
+            genreSongsView(selectedGenre)
+        } else {
+            genreGridView
+        }
+    }
+
+    private var genreGridView: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("GENRES")
+                .font(.orbitronBold(size: 14))
+                .foregroundStyle(.white.opacity(0.5))
+
+            if songsByGenre.isEmpty {
+                emptyMessage("No songs yet", "Add songs from Apple Music or upload your own to browse by genre.")
+            } else {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 200), spacing: 16)], spacing: 16) {
+                    ForEach(songsByGenre, id: \.genre) { entry in
+                        Button {
+                            withAnimation(.easeInOut(duration: 0.2)) { selectedGenre = entry.genre }
+                        } label: {
+                            genreCard(entry.genre, count: entry.songs.count)
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
             }
@@ -491,92 +608,95 @@ struct SongPickView: View {
         .padding(.horizontal, 32)
     }
 
-    // MARK: - Generic Tab Content Views
-    private var genreView: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("GENRES")
-                .font(.orbitronBold(size: 14))
-                .foregroundStyle(.white.opacity(0.5))
-            
-            VStack(spacing: 8) {
-                ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
-                    recommendationRow(index: index, song: song)
-                }
+    private func genreCard(_ genre: SongGenre, count: Int) -> some View {
+        HStack(spacing: 14) {
+            Image(systemName: genre.symbol)
+                .font(.system(size: 20, weight: .bold))
+                .foregroundStyle(.white)
+                .frame(width: 48, height: 48)
+                .background(
+                    LinearGradient(
+                        colors: [Color(red: 0.4, green: 0.8, blue: 1.0), Color(red: 0.2, green: 0.35, blue: 0.85)],
+                        startPoint: .topLeading, endPoint: .bottomTrailing
+                    ),
+                    in: RoundedRectangle(cornerRadius: 12)
+                )
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(genre.displayName)
+                    .font(.poppinsBold(size: 15))
+                    .foregroundStyle(.white)
+                Text("\(count) song\(count == 1 ? "" : "s")")
+                    .font(.caption)
+                    .foregroundStyle(.white.opacity(0.5))
             }
+
+            Spacer()
+
+            Image(systemName: "chevron.right")
+                .font(.system(size: 12, weight: .bold))
+                .foregroundStyle(.white.opacity(0.4))
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity)
+        .background(Color.white.opacity(0.05))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color.white.opacity(0.1), lineWidth: 1)
+        )
+    }
+
+    private func genreSongsView(_ genre: SongGenre) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 12) {
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) { selectedGenre = nil }
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "chevron.left").font(.system(size: 12, weight: .bold))
+                        Text("GENRES").font(.orbitronBold(size: 12))
+                    }
+                    .foregroundStyle(Color(red: 0.4, green: 0.8, blue: 1.0))
+                }
+                .buttonStyle(.plain)
+
+                Text(genre.displayName.uppercased())
+                    .font(.orbitronBold(size: 14))
+                    .foregroundStyle(.white.opacity(0.5))
+            }
+
+            songList(songs.filter { $0.genre == genre })
         }
         .padding(.horizontal, 32)
     }
-    
-    private var topChartsView: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("TOP CHARTS")
-                .font(.orbitronBold(size: 14))
-                .foregroundStyle(.white.opacity(0.5))
-            
-            VStack(spacing: 8) {
-                ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
-                    recommendationRow(index: index, song: song)
-                }
-            }
-        }
-        .padding(.horizontal, 32)
-    }
-    
+
+    // MARK: - Favourites Tab
     private var favouritesView: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("FAVOURITES")
                 .font(.orbitronBold(size: 14))
                 .foregroundStyle(.white.opacity(0.5))
-            
-            VStack(spacing: 8) {
-                ForEach(Array(songs.prefix(3).enumerated()), id: \.element.id) { index, song in
-                    recommendationRow(index: index, song: song)
-                }
+
+            if favourites.isEmpty {
+                emptyMessage("No favourites yet", "Tap the ☆ star on any song to save it here.")
+            } else {
+                songList(favourites)
             }
         }
         .padding(.horizontal, 32)
     }
-    
-    private var addSongView: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            Text("ADD YOUR SONG")
-                .font(.orbitronBold(size: 14))
-                .foregroundStyle(.white.opacity(0.5))
-            
-            VStack(alignment: .leading, spacing: 16) {
-                Text("Search & Add from Apple Music")
-                    .font(.poppinsBold(size: 16))
-                
-                Text("Connect your Apple Music subscription to access millions of tracks, sync playlists, and sing any song directly in Melodash.")
-                    .font(.body)
-                    .foregroundStyle(.white.opacity(0.7))
-                
-                Button {
-                    showingAppleMusic = true
-                } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "music.note")
-                        Text("LAUNCH APPLE MUSIC CATALOG")
-                            .font(.orbitronBold(size: 12))
-                    }
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
-                    .background(
-                        LinearGradient(
-                            colors: [Color(red: 1.0, green: 0.17, blue: 0.33), Color(red: 0.86, green: 0.1, blue: 0.6)],
-                            startPoint: .leading, endPoint: .trailing
-                        ),
-                        in: Capsule()
-                    )
-                    .shadow(color: Color(red: 1.0, green: 0.17, blue: 0.33).opacity(0.3), radius: 8)
-                }
-                .buttonStyle(.plain)
-            }
-            .padding(20)
-            .kemonGlassCard(16)
+
+    private func emptyMessage(_ title: String, _ message: String) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.poppinsBold(size: 15))
+                .foregroundStyle(.white.opacity(0.7))
+            Text(message)
+                .font(.poppinsMedium(size: 12))
+                .foregroundStyle(.white.opacity(0.45))
         }
-        .padding(.horizontal, 32)
+        .padding(.top, 10)
     }
 
     // MARK: - Artwork Helpers
