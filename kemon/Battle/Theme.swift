@@ -750,8 +750,9 @@ struct KemonPrimaryButton: View {
     let title: String
     var systemImage: String? = nil
     var tint: Color = .kemonBlue
+    var isEnabled: Bool = true
     let action: () -> Void
-    
+
     @State private var isHovered = false
 
     var body: some View {
@@ -799,13 +800,15 @@ struct KemonPrimaryButton: View {
                 x: 0,
                 y: isHovered ? 6 : 4
             )
-            .scaleEffect(isHovered ? 1.06 : 1.0)
+            .scaleEffect(isHovered && isEnabled ? 1.06 : 1.0)
             .animation(.spring(response: 0.35, dampingFraction: 0.6), value: isHovered)
+            .opacity(isEnabled ? 1.0 : 0.4)
             .onHover { hovering in
                 isHovered = hovering
             }
         }
         .buttonStyle(.plain)
+        .disabled(!isEnabled)
     }
 }
 

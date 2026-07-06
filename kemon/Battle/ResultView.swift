@@ -271,13 +271,15 @@ struct ResultView: View {
         while secondsRemaining > 0 {
             try? await Task.sleep(for: .seconds(1))
             guard !Task.isCancelled else { return }
+            // Hold the countdown while the player is in the Lobby.
+            guard !battle.isLobbyPresented else { continue }
             secondsRemaining -= 1
         }
         advance()
     }
 
     private func advance() {
-        guard battle.screen == .result else { return }
+        guard battle.screen == .result, !battle.isLobbyPresented else { return }
         battle.advanceFromResult()
     }
 }

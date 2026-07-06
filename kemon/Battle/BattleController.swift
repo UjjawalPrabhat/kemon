@@ -78,6 +78,10 @@ final class BattleController {
 
     private(set) var screen: Screen = .home
 
+    /// Whether the in-game Lobby overlay (progress + turn order + exit) is showing.
+    /// Presented on top of the active battle screens; dismissing it resumes play.
+    var isLobbyPresented = false
+
     // Setup choices.
     var playerCount = 2          // 2…5
     var roundCount = 2           // 1…5
@@ -129,6 +133,31 @@ final class BattleController {
         players.sorted { $0.average > $1.average }
     }
 
+    /// Where a singer sits relative to the turn in progress this round — drives
+    /// the Lobby's turn-order display.
+    enum TurnStatus { case done, singing, upcoming }
+
+    /// One row of the Lobby's turn-order list: the player, their fixed position
+    /// in the singing order, and their status in the current round.
+    struct TurnSlot: Identifiable {
+        let id: Int          // position in the order (0-based)
+        let player: Player
+        let status: TurnStatus
+    }
+
+    /// The singing order for this battle, in fixed roulette order, each tagged
+    /// with whether they've sung / are singing / are up next *this round*. This
+    /// reads straight from `order`, so it always mirrors what actually plays.
+    var turnOrder: [TurnSlot] {
+        order.indices.map { position in
+            let status: TurnStatus
+            if position < turnIndex { status = .done }
+            else if position == turnIndex { status = .singing }
+            else { status = .upcoming }
+            return TurnSlot(id: position, player: players[order[position]], status: status)
+        }
+    }
+
     // MARK: - Navigation / actions
 
     func goHome() { screen = .home }
@@ -157,16 +186,17 @@ final class BattleController {
         players[index].name = name
     }
 
+    /// Every player must have both a non-empty name and a chosen avatar before
+    /// the battle can start.
+    var allPlayersReady: Bool {
+        !players.isEmpty && players.allSatisfy { player in
+            !player.name.trimmingCharacters(in: .whitespaces).isEmpty && player.avatar != nil
+        }
+    }
+
     /// Avatar selection complete → turn-order screen.
     func confirmPlayers() {
-        for i in 0..<players.count {
-            if players[i].name.trimmingCharacters(in: .whitespaces).isEmpty {
-                players[i].name = "PLAYER \(i + 1)"
-            }
-            if players[i].avatar == nil {
-                players[i].avatar = Avatar.catalog[i % Avatar.catalog.count]
-            }
-        }
+        guard allPlayersReady else { return }
         screen = .order
     }
 
@@ -187,6 +217,13 @@ final class BattleController {
     func pickSong(_ song: Song) {
         selectedSong = song
         screen = .performing
+    }
+
+    /// Abandons the in-progress performance without scoring and returns to song
+    /// selection so the same singer can pick a different track.
+    func changeSong() {
+        selectedSong = nil
+        screen = .songPick
     }
 
     /// Records the finished turn's score and shows the fullscreen results
@@ -219,10 +256,12 @@ final class BattleController {
     /// restarts from round 1. Backs the "Start New Round" button on the finale.
     func startNewRound() {
         for i in players.indices { players[i].scores = [] }
-        order = Array(0..<players.count)
+        // Keep the singing order players spun for — don't silently reshuffle
+        // it back to 1-2-3 on replay.
         currentRound = 1
         turnIndex = 0
         selectedSong = nil
+        isLobbyPresented = false
         screen = .roundIntro
     }
 
@@ -233,6 +272,15 @@ final class BattleController {
         currentRound = 1
         turnIndex = 0
         selectedSong = nil
+        isLobbyPresented = false
         screen = .home
     }
+
+    // MARK: - Lobby
+
+    /// Opens the in-game Lobby overlay (progress, turn order, exit).
+    func openLobby() { isLobbyPresented = true }
+
+    /// Closes the Lobby and resumes the battle where it left off.
+    func dismissLobby() { isLobbyPresented = false }
 }
