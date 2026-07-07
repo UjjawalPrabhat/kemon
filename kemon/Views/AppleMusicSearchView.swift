@@ -38,7 +38,7 @@ struct AppleMusicSearchView: View {
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
-                        .foregroundStyle(Color(red: 0.4, green: 0.8, blue: 1.0))
+                        .foregroundStyle(Color.kemonBlue)
                 }
             }
         }
@@ -82,8 +82,8 @@ struct AppleMusicSearchView: View {
     // MARK: - Content states
 
     @ViewBuilder
-    private func content(for auth: MusicAuthorization.Status) -> some View {
-        switch auth {
+    private var content: some View {
+        switch authorization {
         case .authorized:
             if let errorText {
                 errorState(errorText)
@@ -100,11 +100,6 @@ struct AppleMusicSearchView: View {
         default:
             unavailable
         }
-    }
-
-    @ViewBuilder
-    private var content: some View {
-        content(for: authorization)
     }
 
     private var resultList: some View {
@@ -128,7 +123,7 @@ struct AppleMusicSearchView: View {
                 Image(systemName: "music.note")
                     .frame(width: 48, height: 48)
                     .foregroundStyle(.white)
-                    .background(Color(red: 0.4, green: 0.8, blue: 1.0).opacity(0.15), in: RoundedRectangle(cornerRadius: 8))
+                    .background(Color.kemonBlue.opacity(0.15), in: RoundedRectangle(cornerRadius: 8))
             }
             
             VStack(alignment: .leading, spacing: 2) {
@@ -144,7 +139,7 @@ struct AppleMusicSearchView: View {
             
             Image(systemName: addedID == song.id.rawValue ? "checkmark.circle.fill" : "plus.circle")
                 .font(.title2)
-                .foregroundStyle(addedID == song.id.rawValue ? Color.green : Color(red: 0.4, green: 0.8, blue: 1.0))
+                .foregroundStyle(addedID == song.id.rawValue ? Color.green : Color.kemonBlue)
         }
         .padding(12)
         .kemonGlassCard(14)

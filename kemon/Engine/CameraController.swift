@@ -17,7 +17,7 @@ import ImageIO
 /// `nonisolated` because frame processing runs on a background capture queue;
 /// the project defaults types to the main actor. Results hop back to the main
 /// actor via `onReading`.
-nonisolated final class CameraController: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate, FaceSource, @unchecked Sendable {
+nonisolated final class CameraController: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate, @unchecked Sendable {
 
     /// Exposed so the SwiftUI preview layer can attach to it.
     let session = AVCaptureSession()
@@ -136,8 +136,7 @@ nonisolated final class CameraController: NSObject, AVCaptureVideoDataOutputSamp
             .max { $0.boundingBox.height < $1.boundingBox.height }) else {
             emit(EmotionReading(dominant: .neutral,
                                 confidences: [.neutral: 1.0],
-                                faceDetected: false,
-                                mediaTime: 0))
+                                faceDetected: false))
             return
         }
 
@@ -153,7 +152,6 @@ nonisolated final class CameraController: NSObject, AVCaptureVideoDataOutputSamp
             emit(EmotionReading(dominant: .neutral,
                                 confidences: [.neutral: 1.0],
                                 faceDetected: true,
-                                mediaTime: 0,
                                 smile: smile))
         }
     }

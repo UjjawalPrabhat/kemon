@@ -1,5 +1,5 @@
 //
-//  kemonApp.swift
+//  KemonApp.swift
 //  kemon
 //
 //  Created by Muhammad Nurul Akbar on 01/07/26.
@@ -9,8 +9,8 @@ import SwiftUI
 import SwiftData
 
 @main
-struct kemonApp: App {
-    var sharedModelContainer: ModelContainer = {
+struct KemonApp: App {
+    private let sharedModelContainer: ModelContainer = {
         let schema = Schema([
             Song.self,
         ])

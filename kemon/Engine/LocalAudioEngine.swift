@@ -52,8 +52,6 @@ final class LocalAudioEngine: PlaybackSource {
 
     // MARK: - PlaybackSource
 
-    var isPlaying: Bool { player.isPlaying }
-
     var supportsVocalSuppression: Bool { canSuppress }
 
     var vocalSuppressionEnabled: Bool = false {
@@ -221,7 +219,7 @@ final class LocalAudioEngine: PlaybackSource {
     }
 
     /// Resolves the file: an imported security-scoped URL wins, otherwise the
-    /// bundled resource (mirrors AudioController's bundle lookup).
+    /// bundled resource.
     private static func resolveURL(for song: Song) -> URL? {
         if case .imported = song.source, let url = song.importedURL {
             return url

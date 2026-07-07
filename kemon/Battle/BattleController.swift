@@ -15,27 +15,14 @@ import Observation
 
 // MARK: - Models
 
-/// A pickable player avatar: an SF Symbol on a pastel disc. Swap `symbol` for an
-/// asset name later to use real character/Memoji art.
+/// A pickable player avatar backed by a Memoji-style image asset.
 struct Avatar: Identifiable, Equatable {
     let id: Int
     let imageName: String
-    let emoji: String
 
-    static let catalog: [Avatar] = [
-        Avatar(id: 0, imageName: "memoji-1", emoji: "😲"),
-        Avatar(id: 1, imageName: "memoji-2", emoji: "😜"),
-        Avatar(id: 2, imageName: "memoji-3", emoji: "👩"),
-        Avatar(id: 3, imageName: "memoji-4", emoji: "😅"),
-        Avatar(id: 4, imageName: "memoji-5", emoji: "😍"),
-        Avatar(id: 5, imageName: "memoji-6", emoji: "👦"),
-        Avatar(id: 6, imageName: "memoji-7", emoji: "🙋‍♂️"),
-        Avatar(id: 7, imageName: "memoji-8", emoji: "🧑‍🦱"),
-        Avatar(id: 8, imageName: "memoji-9", emoji: "🤯"),
-        Avatar(id: 9, imageName: "memoji-10", emoji: "🙌"),
-        Avatar(id: 10, imageName: "memoji-11", emoji: "👵"),
-        Avatar(id: 11, imageName: "memoji-12", emoji: "👧")
-    ]
+    static let catalog: [Avatar] = (1...12).map {
+        Avatar(id: $0 - 1, imageName: "memoji-\($0)")
+    }
 }
 
 /// One battle participant. Ephemeral — the battle is a single sitting, so this
@@ -85,7 +72,6 @@ final class BattleController {
     // Setup choices.
     var playerCount = 2          // 2…5
     var roundCount = 2           // 1…5
-    var isSignedIn = false
 
     // Battle state.
     private(set) var players: [Player] = []

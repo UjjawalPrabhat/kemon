@@ -23,9 +23,6 @@ nonisolated struct VoiceReading: Sendable {
     /// Signed cents from `nearestNote`, in −50...+50, or nil when unvoiced.
     var centsOff: Double?
 
-    /// Linear RMS amplitude of the frame (0...~1).
-    var rms: Double
-
     /// RMS in dBFS (20·log10(rms)), floored around −80 for silence.
     var db: Double
 
@@ -44,7 +41,6 @@ nonisolated struct VoiceReading: Sendable {
         f0: nil,
         nearestNote: nil,
         centsOff: nil,
-        rms: 0,
         db: -80,
         confidence: 0,
         isVoiced: false,

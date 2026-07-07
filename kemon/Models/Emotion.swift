@@ -54,16 +54,13 @@ struct EmotionReading: Sendable {
     var dominant: Emotion
     var confidences: [Emotion: Double]
     var faceDetected: Bool
-    /// Media time (audio clock) the reading corresponds to, when available.
-    var mediaTime: TimeInterval
     /// Model-free smile score (0...1) from Vision landmark geometry.
     var smile: Double = 0
 
     static let empty = EmotionReading(
         dominant: .neutral,
         confidences: [.neutral: 1.0],
-        faceDetected: false,
-        mediaTime: 0
+        faceDetected: false
     )
 
     /// Convenience: confidence of a given emotion, 0 if absent.

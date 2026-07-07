@@ -111,3 +111,20 @@ enum LyricsLoader {
         return Int(value.trimmingCharacters(in: .whitespaces))
     }
 }
+
+extension String {
+    /// A Latin transliteration of this string (e.g. Japanese/Korean/Cyrillic →
+    /// romanised), diacritics stripped. Returns the original when it can't be
+    /// transformed. Used to offer a "romanize" toggle for non-Latin lyrics.
+    var romanizedLatin: String {
+        applyingTransform(.toLatin, reverse: false)?
+            .applyingTransform(.stripDiacritics, reverse: false) ?? self
+    }
+
+    /// True when romanising actually changes the string, i.e. it contains
+    /// non-Latin script worth offering a toggle for.
+    var containsNonLatinScript: Bool {
+        guard let transformed = applyingTransform(.toLatin, reverse: false) else { return false }
+        return transformed != self
+    }
+}

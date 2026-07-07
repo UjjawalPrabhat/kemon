@@ -112,12 +112,12 @@ struct SongPickView: View {
             .padding(.vertical, 16)
             .background(
                 LinearGradient(
-                    colors: [Color(red: 0.4, green: 0.8, blue: 1.0), Color(red: 0.2, green: 0.45, blue: 0.9)],
+                    colors: [Color.kemonBlue, Color(red: 0.2, green: 0.45, blue: 0.9)],
                     startPoint: .topLeading, endPoint: .bottomTrailing
                 ),
                 in: Capsule()
             )
-            .shadow(color: Color(red: 0.4, green: 0.8, blue: 1.0).opacity(0.5), radius: 14, y: 4)
+            .shadow(color: Color.kemonBlue.opacity(0.5), radius: 14, y: 4)
         }
         .buttonStyle(.plain)
         .disabled(isImporting)
@@ -148,7 +148,7 @@ struct SongPickView: View {
             // App branding header
             Text("MELODASH")
                 .font(.orbitronBlack(size: 20))
-                .foregroundStyle(Color(red: 0.4, green: 0.8, blue: 1.0))
+                .foregroundStyle(Color.kemonBlue)
                 .meloGlowText()
                 .padding(.bottom, 12)
                 .padding(.leading, 12)
@@ -219,7 +219,7 @@ struct SongPickView: View {
             HStack(spacing: 12) {
                 Image(systemName: icon)
                     .font(.system(size: 14, weight: .bold))
-                    .foregroundStyle(isActive ? Color(red: 0.4, green: 0.8, blue: 1.0) : .white.opacity(0.6))
+                    .foregroundStyle(isActive ? Color.kemonBlue : .white.opacity(0.6))
                     .frame(width: 20)
                 
                 Text(title)
@@ -244,12 +244,12 @@ struct SongPickView: View {
                     if let currentPlayer = battle.currentPlayer {
                         Text("• \(currentPlayer.displayName.uppercased()) SELECTING")
                             .font(.poppinsBold(size: 12))
-                            .foregroundStyle(Color(red: 0.4, green: 0.8, blue: 1.0))
+                            .foregroundStyle(Color.kemonBlue)
                             .padding(.horizontal, 14)
                             .padding(.vertical, 5)
                             .background(
                                 Capsule()
-                                    .stroke(Color(red: 0.4, green: 0.8, blue: 1.0), lineWidth: 1.5)
+                                    .stroke(Color.kemonBlue, lineWidth: 1.5)
                             )
                             .meloGlowText()
                     }
@@ -383,7 +383,7 @@ struct SongPickView: View {
                                     battle.pickSong(song)
                                 } label: {
                                     VStack(alignment: .leading, spacing: 6) {
-                                        artwork(for: song, size: 94)
+                                        SongArtworkView(song: song, size: 94, cornerRadius: 14)
                                             .overlay(
                                                 RoundedRectangle(cornerRadius: 12)
                                                     .stroke(Color.white.opacity(0.12), lineWidth: 1)
@@ -442,8 +442,7 @@ struct SongPickView: View {
             }
             .buttonStyle(.plain)
 
-            // Circle bubble artwork
-            artwork(for: song, size: 34)
+            SongArtworkView(song: song, size: 34, cornerRadius: 8)
                 .clipShape(Circle())
 
             // Details
@@ -476,14 +475,14 @@ struct SongPickView: View {
             } label: {
                 Text("SING")
                     .font(.orbitronBold(size: 11))
-                    .foregroundStyle(Color(red: 0.4, green: 0.8, blue: 1.0))
+                    .foregroundStyle(Color.kemonBlue)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 4)
                     .background(
                         Capsule()
-                            .stroke(Color(red: 0.4, green: 0.8, blue: 1.0), lineWidth: 1.5)
+                            .stroke(Color.kemonBlue, lineWidth: 1.5)
                     )
-                    .shadow(color: Color(red: 0.4, green: 0.8, blue: 1.0).opacity(0.3), radius: 4)
+                    .shadow(color: Color.kemonBlue.opacity(0.3), radius: 4)
             }
             .buttonStyle(.plain)
         }
@@ -616,7 +615,7 @@ struct SongPickView: View {
                 .frame(width: 48, height: 48)
                 .background(
                     LinearGradient(
-                        colors: [Color(red: 0.4, green: 0.8, blue: 1.0), Color(red: 0.2, green: 0.35, blue: 0.85)],
+                        colors: [Color.kemonBlue, Color(red: 0.2, green: 0.35, blue: 0.85)],
                         startPoint: .topLeading, endPoint: .bottomTrailing
                     ),
                     in: RoundedRectangle(cornerRadius: 12)
@@ -657,7 +656,7 @@ struct SongPickView: View {
                         Image(systemName: "chevron.left").font(.system(size: 12, weight: .bold))
                         Text("GENRES").font(.orbitronBold(size: 12))
                     }
-                    .foregroundStyle(Color(red: 0.4, green: 0.8, blue: 1.0))
+                    .foregroundStyle(Color.kemonBlue)
                 }
                 .buttonStyle(.plain)
 
@@ -699,43 +698,6 @@ struct SongPickView: View {
         .padding(.top, 10)
     }
 
-    // MARK: - Artwork Helpers
-    @ViewBuilder
-    private func artwork(for song: Song, size: CGFloat) -> some View {
-        if let urlString = song.artworkURLString, let url = URL(string: urlString) {
-            AsyncImage(url: url) { phase in
-                switch phase {
-                case .success(let image):
-                    image
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                default:
-                    defaultGradientArtwork(for: song, size: size)
-                }
-            }
-            .frame(width: size, height: size)
-            .clipShape(RoundedRectangle(cornerRadius: size > 80 ? 14 : 8))
-        } else {
-            defaultGradientArtwork(for: song, size: size)
-        }
-    }
-
-    private func defaultGradientArtwork(for song: Song, size: CGFloat) -> some View {
-        let hue = Double(abs(song.title.hashValue) % 100) / 100.0
-        return RoundedRectangle(cornerRadius: size > 80 ? 14 : 8)
-            .fill(LinearGradient(
-                colors: [
-                    Color(hue: hue, saturation: 0.5, brightness: 0.75),
-                    Color(hue: hue, saturation: 0.6, brightness: 0.45),
-                ],
-                startPoint: .topLeading, endPoint: .bottomTrailing))
-            .frame(width: size, height: size)
-            .overlay {
-                Image(systemName: "music.note")
-                    .font(.system(size: size * 0.3))
-                    .foregroundStyle(.white.opacity(0.9))
-            }
-    }
 }
 
 #Preview {

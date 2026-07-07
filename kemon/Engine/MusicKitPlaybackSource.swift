@@ -31,7 +31,6 @@ final class MusicKitPlaybackSource: PlaybackSource {
     private var started = false
 
     var currentTime: TimeInterval { player.playbackTime }
-    var isPlaying: Bool { player.state.playbackStatus == .playing }
 
     // No sample access → suppression can never be offered.
     let supportsVocalSuppression = false

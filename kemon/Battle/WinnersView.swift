@@ -50,14 +50,7 @@ struct WinnersView: View {
     /// none of the default page's planet / small UFOs / comet ornaments.
     private var finaleBackground: some View {
         ZStack {
-            LinearGradient(
-                stops: [
-                    .init(color: Color(red: 4.0/255.0, green: 7.0/255.0, blue: 26.0/255.0), location: 0.0),
-                    .init(color: Color(red: 8.0/255.0, green: 13.0/255.0, blue: 42.0/255.0), location: 0.4),
-                    .init(color: Color(red: 10.0/255.0, green: 5.0/255.0, blue: 32.0/255.0), location: 1.0)
-                ],
-                startPoint: .top, endPoint: .bottom
-            )
+            LinearGradient.kemonSpace
 
             MovingStarsView()
 
@@ -237,18 +230,9 @@ struct WinnersView: View {
 
     @ViewBuilder
     private func avatarImage(_ player: Player, size: CGFloat) -> some View {
-        if let imageName = player.avatar?.imageName {
-            Image(imageName)
-                .resizable()
-                .scaledToFit()
-                .frame(width: size, height: size)
-        } else {
-            Image("avatar-placeholder")
-                .resizable()
-                .scaledToFit()
-                .frame(width: size, height: size)
-                .opacity(0.4)
-        }
+        AvatarImage(imageName: player.avatar?.imageName)
+            .scaledToFit()
+            .frame(width: size, height: size)
     }
 }
 
@@ -293,7 +277,7 @@ struct KemonDarkButton: View {
     battle.setName("Ujiii", for: 4)
     battle.confirmPlayers()
     let totals = [93, 88, 85, 80, 77]
-    for (i, t) in totals.enumerated() {
+    for t in totals {
         battle.showResult(TurnResult(overall: t, pitch: t, facialExpression: t))
         battle.advanceFromResult()
     }

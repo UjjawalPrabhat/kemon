@@ -18,7 +18,7 @@
 /// `nonisolated`/`@unchecked Sendable` because the tap closure runs on a
 /// realtime audio thread; readings hop back to the main actor via `onReading`,
 /// exactly like CameraController.
-nonisolated final class MicController: NSObject, VoiceSource, @unchecked Sendable {
+nonisolated final class MicController: NSObject, @unchecked Sendable {
 
     /// The shared engine. LocalAudioEngine attaches its player node here.
     let engine = AVAudioEngine()
@@ -219,7 +219,6 @@ nonisolated final class MicController: NSObject, VoiceSource, @unchecked Sendabl
     private func analyze(_ ptr: UnsafePointer<Float>, sampleRate: Double) -> VoiceReading {
         var reading = VoiceReading.empty
         let rms = detector.rms(ptr, count: windowSize)
-        reading.rms = rms
         reading.db = rms > 0 ? max(-80, 20 * log10(rms)) : -80
 
         guard rms >= rmsFloor else { return reading }

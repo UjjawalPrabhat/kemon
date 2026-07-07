@@ -6,7 +6,7 @@
 //
 //  The app is written entirely against this protocol so it compiles and runs
 //  whether or not the trained model is present. KemonEngine loads
-//  CoreMLEmotionAnalyzer if `EmotionClassifier.mlmodel(c)` is in the bundle,
+//  CoreMLEmotionAnalyzer if `KemonEmotionClassifier.mlmodelc` is in the bundle,
 //  and otherwise falls back to PlaceholderEmotionAnalyzer.
 //
 
@@ -57,8 +57,7 @@ nonisolated final class PlaceholderEmotionAnalyzer: EmotionAnalyzing {
         return EmotionReading(
             dominant: dominant,
             confidences: scores,
-            faceDetected: true,
-            mediaTime: 0
+            faceDetected: true
         )
     }
 }
@@ -69,8 +68,8 @@ nonisolated final class PlaceholderEmotionAnalyzer: EmotionAnalyzing {
 /// Vision. Loads the model by name at runtime so this type compiles even before
 /// the model is added to the project.
 ///
-/// To enable: train an image classifier with folders `Happy`, `Sad`, `Angry`,
-/// `Neutral`, name the exported model `EmotionClassifier.mlmodel`, and drop it
+/// To enable: train an image classifier whose class names map via `labelMap`
+/// below, name the exported model `KemonEmotionClassifier.mlmodel`, and drop it
 /// into the `kemon/` folder. KemonEngine picks it up automatically.
 nonisolated final class CoreMLEmotionAnalyzer: EmotionAnalyzing, @unchecked Sendable {
 
@@ -128,13 +127,11 @@ nonisolated final class CoreMLEmotionAnalyzer: EmotionAnalyzing, @unchecked Send
             // Model produced no mappable labels — treat as face-present neutral.
             return EmotionReading(dominant: .neutral,
                                   confidences: [.neutral: 1.0],
-                                  faceDetected: true,
-                                  mediaTime: 0)
+                                  faceDetected: true)
         }
         return EmotionReading(dominant: dominant,
                               confidences: confidences,
-                              faceDetected: true,
-                              mediaTime: 0)
+                              faceDetected: true)
     }
 
     /// Grows a normalised rect by `fraction` on every side, clamped to [0, 1].

@@ -21,7 +21,7 @@ struct BattleSetupView: View {
             
             // Stepper controls laid out directly on the page background matching the mockup
             VStack(spacing: 32) {
-                SpaceCounterRow(title: "Numbers of Singers", value: $battle.playerCount, range: 2...5)
+                SpaceCounterRow(title: "Number of Singers", value: $battle.playerCount, range: 2...5)
                 SpaceCounterRow(title: "How many rounds", value: $battle.roundCount, range: 1...5)
             }
             .frame(maxWidth: 580)
@@ -55,7 +55,6 @@ private struct SpaceCounterRow: View {
             Spacer()
             
             HStack(spacing: 14) {
-                // Minus button
                 Button {
                     if value > range.lowerBound { value -= 1 }
                 } label: {
@@ -67,17 +66,16 @@ private struct SpaceCounterRow: View {
                             RoundedRectangle(cornerRadius: 6)
                                 .stroke(Color.white.opacity(0.3), lineWidth: 1.5)
                         )
-                        .contentShape(Rectangle()) // Make entire box clickable
+                        .contentShape(Rectangle())
                 }
                 .disabled(value <= range.lowerBound)
                 .opacity(value <= range.lowerBound ? 0.3 : 1.0)
-                
+
                 Text("\(value)")
                     .font(.orbitronRegular(size: 26))
                     .foregroundStyle(.white)
                     .frame(minWidth: 32)
-                
-                // Plus button
+
                 Button {
                     if value < range.upperBound { value += 1 }
                 } label: {
@@ -89,7 +87,7 @@ private struct SpaceCounterRow: View {
                             RoundedRectangle(cornerRadius: 6)
                                 .stroke(Color.white.opacity(0.3), lineWidth: 1.5)
                         )
-                        .contentShape(Rectangle()) // Make entire box clickable
+                        .contentShape(Rectangle())
                 }
                 .disabled(value >= range.upperBound)
                 .opacity(value >= range.upperBound ? 0.3 : 1.0)

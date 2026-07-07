@@ -18,14 +18,8 @@ struct ResultView: View {
     private var player: Player? { battle.currentPlayer }
     private var result: TurnResult { battle.lastTurnResult }
 
-    // Bright cyan used for the player cards, matching the mockup.
-    private static let cardCyan = Color(red: 0.24, green: 0.85, blue: 1.0)
-    // Deep blue used for text on the light cards/bars.
-    private static let inkBlue = Color(red: 0.184, green: 0.282, blue: 0.647)
-
     var body: some View {
         ZStack {
-            // Player card — left, under the spotlight beam.
             if let player {
                 playerCard(player)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
@@ -88,14 +82,7 @@ struct ResultView: View {
     /// small planet in the top-right. No small drifting UFOs.
     private var resultBackground: some View {
         ZStack {
-            LinearGradient(
-                stops: [
-                    .init(color: Color(red: 4.0/255.0, green: 7.0/255.0, blue: 26.0/255.0), location: 0.0),
-                    .init(color: Color(red: 8.0/255.0, green: 13.0/255.0, blue: 42.0/255.0), location: 0.4),
-                    .init(color: Color(red: 10.0/255.0, green: 5.0/255.0, blue: 32.0/255.0), location: 1.0)
-                ],
-                startPoint: .top, endPoint: .bottom
-            )
+            LinearGradient.kemonSpace
 
             MovingStarsView()
 
@@ -145,31 +132,22 @@ struct ResultView: View {
         VStack(spacing: 20) {
             Text(player.displayName.uppercased())
                 .font(.poppinsBold(size: 15))
-                .foregroundStyle(Self.inkBlue)
+                .foregroundStyle(Color.kemonInkBlue)
                 .padding(.horizontal, 18)
                 .padding(.vertical, 7)
                 .background(
-                    Capsule().stroke(Self.inkBlue, lineWidth: 1.5)
+                    Capsule().stroke(Color.kemonInkBlue, lineWidth: 1.5)
                 )
 
-            if let imageName = player.avatar?.imageName {
-                Image(imageName)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 150, height: 150)
-            } else {
-                Image("avatar-placeholder")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 150, height: 150)
-                    .opacity(0.4)
-            }
+            AvatarImage(imageName: player.avatar?.imageName)
+                .scaledToFit()
+                .frame(width: 150, height: 150)
         }
         .padding(28)
         .frame(width: 260, height: 320)
-        .background(Self.cardCyan)
+        .background(Color.kemonCyan)
         .clipShape(RoundedRectangle(cornerRadius: 28))
-        .shadow(color: Self.cardCyan.opacity(0.5), radius: 24)
+        .shadow(color: Color.kemonCyan.opacity(0.5), radius: 24)
     }
 
     // MARK: - Metric Row (slanted lavender bar, matches the mockup)
@@ -182,7 +160,7 @@ struct ResultView: View {
             Text("\(value)")
                 .font(.orbitronBold(size: 20))
         }
-        .foregroundStyle(Self.inkBlue)
+        .foregroundStyle(Color.kemonInkBlue)
         .padding(.horizontal, 34)
         .padding(.vertical, 18)
         .frame(width: 470)
@@ -224,14 +202,14 @@ struct ResultView: View {
 
                     Text(upcoming.displayName)
                         .font(.poppinsBold(size: 12))
-                        .foregroundStyle(Self.inkBlue)
+                        .foregroundStyle(Color.kemonInkBlue)
                         .lineLimit(1)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 4)
-                        .background(Capsule().stroke(Self.inkBlue, lineWidth: 1.2))
+                        .background(Capsule().stroke(Color.kemonInkBlue, lineWidth: 1.2))
                 }
                 .padding(12)
-                .background(RoundedRectangle(cornerRadius: 18).fill(Self.cardCyan))
+                .background(RoundedRectangle(cornerRadius: 18).fill(Color.kemonCyan))
 
                 Text(String(format: "Next Up in %02d…", secondsRemaining))
                     .font(.poppinsBold(size: 22))

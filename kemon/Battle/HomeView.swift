@@ -15,14 +15,13 @@ struct HomeView: View {
     var body: some View {
         VStack(spacing: 40) {
             Spacer()
-            
-            // App Title Logo from assets catalog
+
             Image("logo-melodash")
                 .resizable()
                 .scaledToFit()
                 .frame(width: 880, height: 210)
                 .scaleEffect(logoScale)
-                .shadow(color: Color(red: 0.4, green: 0.8, blue: 1.0).opacity(0.85), radius: 16)
+                .shadow(color: Color.kemonBlue.opacity(0.85), radius: 16)
                 .onAppear {
                     withAnimation(.easeInOut(duration: 3.0).repeatForever(autoreverses: true)) {
                         logoScale = 1.03
