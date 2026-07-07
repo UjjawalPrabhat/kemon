@@ -22,9 +22,16 @@ final class KemonEngine {
     private(set) var score = ScoringMatrix()
     private(set) var voiceScore = VoiceScoringMatrix()
     private(set) var isPerforming = false
+    /// True while the singer has paused the track mid-performance. `isPerforming`
+    /// stays true — the turn isn't over, the clock and audio are just halted.
+    private(set) var isPaused = false
     private(set) var currentLyricIndex: Int?
     private(set) var elapsed: TimeInterval = 0
     private(set) var finalSummary: String?
+
+    /// Non-nil when the active track can't play — e.g. an Apple Music song with
+    /// no active subscription. The UI shows this as a dismissible warning.
+    private(set) var playbackWarning: String?
 
     /// Resolved timed lyrics for the active song (from a bundled .lrc if present).
     private(set) var lyrics: [LyricLine] = []
@@ -119,6 +126,8 @@ final class KemonEngine {
         elapsed = 0
         canSuppressVocals = false
         vocalSuppressed = false
+        isPaused = false
+        playbackWarning = nil
 
         playback = makePlaybackSource(for: song)
         let isAppleMusic = song.source == .appleMusic
@@ -132,6 +141,7 @@ final class KemonEngine {
                 // ("ping did not pong" → prepareToPlay fails → silence).
                 await playback.prepare(for: song)
                 canSuppressVocals = playback.supportsVocalSuppression
+                playbackWarning = playback.unavailableReason
                 // Now start the mic — this sets .playAndRecord + starts the
                 // engine. MusicKit's player is already prepared and tolerates
                 // the session change at this point. Crucially, run WITHOUT the
@@ -162,6 +172,33 @@ final class KemonEngine {
         finishPerformance()
         camera.stop()
         mic.stop()
+    }
+
+    /// Play/pause toggle for the singer. Halts (or resumes) the audio, mic
+    /// capture, and lyric/scoring clock together so nothing advances while
+    /// paused. No-op once the turn has ended.
+    func togglePause() {
+        guard isPerforming else { return }
+        if isPaused {
+            isPaused = false
+            mic.resume()
+            playback.resume()
+            startClock()
+        } else {
+            isPaused = true
+            stopClock()
+            playback.pause()
+            mic.pause()
+        }
+    }
+
+    /// Scrub to `time` seconds into the track and immediately resync the lyric
+    /// highlight so the display doesn't lag a clock tick behind the jump.
+    func seek(to time: TimeInterval) {
+        guard isPerforming else { return }
+        playback.seek(to: max(0, time))
+        elapsed = playback.currentTime
+        currentLyricIndex = lyricIndex(at: elapsed, in: lyrics)
     }
 
     /// Toggles vocal suppression on the backing track (local sources only).
@@ -226,6 +263,7 @@ final class KemonEngine {
     private func finishPerformance() {
         guard isPerforming else { return }
         isPerforming = false
+        isPaused = false
         stopClock()
         playback.stop()
         mic.stop()
