@@ -112,6 +112,27 @@ final class LocalAudioEngine: PlaybackSource {
         player.play()
     }
 
+    /// Reschedules the active buffer from `time`, preserving play/pause state.
+    /// Same mechanism as a vocal-suppress toggle, just to an arbitrary offset.
+    func seek(to time: TimeInterval) {
+        guard let buffer = originalBuffer else { return }
+        let rate = buffer.format.sampleRate
+        // Clamp one frame short of the end so slicing never yields an empty tail
+        // (which would flag the track finished).
+        let maxFrame = max(0, buffer.frameLength.asFramePosition - 1)
+        let frame = min(max(0, AVAudioFramePosition(time * rate)), maxFrame)
+        let wasPlaying = player.isPlaying
+
+        player.stop()
+        finished = false
+        segmentStartFrame = frame
+        scheduleActiveBuffer(fromFrame: frame)
+        if wasPlaying {
+            if !engine.isRunning { try? engine.start() }
+            player.play()
+        }
+    }
+
     func pause() { player.pause() }
 
     func resume() {

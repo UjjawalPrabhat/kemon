@@ -27,6 +27,11 @@ protocol PlaybackSource: AnyObject {
     /// True once playback has run past the end of the track.
     var didFinish: Bool { get }
 
+    /// Non-nil once `prepare` determines the song can't actually be played
+    /// (e.g. an Apple Music track with no active subscription). Surfaced to the
+    /// user as a warning. Nil means playback is expected to work.
+    var unavailableReason: String? { get }
+
     /// Whether this source can dim the lead vocal. False for MusicKit (DRM).
     var supportsVocalSuppression: Bool { get }
 
@@ -39,6 +44,10 @@ protocol PlaybackSource: AnyObject {
     func play()
     func stop()
 
+    /// Jump to `time` seconds into the track (user scrubbing the progress bar).
+    /// Default no-ops for sources that can't seek.
+    func seek(to time: TimeInterval)
+
     /// Pause/resume for audio-session interruptions (calls, Siri). Default
     /// no-ops so a source that doesn't need them stays simple.
     func pause()
@@ -48,4 +57,7 @@ protocol PlaybackSource: AnyObject {
 extension PlaybackSource {
     func pause() {}
     func resume() {}
+    func seek(to time: TimeInterval) {}
+    /// Local sources always play; only Apple Music can be unavailable.
+    var unavailableReason: String? { nil }
 }

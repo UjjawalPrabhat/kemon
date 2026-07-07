@@ -37,6 +37,10 @@ final class MusicKitPlaybackSource: PlaybackSource {
     let supportsVocalSuppression = false
     var vocalSuppressionEnabled = false
 
+    /// Set by `prepare` when the track can't play — almost always a missing or
+    /// inactive Apple Music subscription. Read by the engine to warn the user.
+    private(set) var unavailableReason: String?
+
     /// MusicKit doesn't expose track duration on the player synchronously; treat
     /// a stopped state that follows actual playback as finished.
     var didFinish: Bool {
@@ -44,7 +48,23 @@ final class MusicKitPlaybackSource: PlaybackSource {
     }
 
     func prepare(for song: Song) async {
+        unavailableReason = nil
         guard let id = song.appleMusicID else { return }
+
+        // Verify the account can actually stream catalog content before queuing.
+        // Without an active subscription, prepareToPlay/play fail silently — so
+        // catch it here and hand the engine a clear message to show the user.
+        if let subscription = try? await MusicSubscription.current,
+           !subscription.canPlayCatalogContent {
+            unavailableReason = """
+            Playing Apple Music tracks needs an active Apple Music subscription \
+            signed in on this device. Pick a bundled or imported song to sing \
+            without one.
+            """
+            prepared = false
+            return
+        }
+
         do {
             let request = MusicCatalogResourceRequest<MusicKit.Song>(
                 matching: \.id, equalTo: MusicItemID(id)
@@ -56,6 +76,11 @@ final class MusicKitPlaybackSource: PlaybackSource {
             prepared = true
         } catch {
             prepared = false
+            unavailableReason = """
+            This Apple Music track couldn't be loaded. Check your connection and \
+            that you're signed in with an active Apple Music subscription, or pick \
+            a bundled song.
+            """
         }
     }
 
@@ -76,6 +101,10 @@ final class MusicKitPlaybackSource: PlaybackSource {
         player.stop()
         prepared = false
         started = false
+    }
+
+    func seek(to time: TimeInterval) {
+        player.playbackTime = max(0, time)
     }
 
     func pause() { player.pause() }
