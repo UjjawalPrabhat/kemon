@@ -17,7 +17,6 @@ struct TurnOrderView: View {
 
     var body: some View {
         VStack(spacing: 20) {
-            // Title Header
             VStack(spacing: 6) {
                 Text("MIC ROULETTE")
                     .font(.orbitronBlack(size: 40))
@@ -32,7 +31,6 @@ struct TurnOrderView: View {
 
             Spacer()
 
-            // Slot Machine Reels Panel floating directly in space
             HStack(spacing: 16) {
                 ForEach(0..<battle.players.count, id: \.self) { position in
                     VStack(spacing: 12) {
@@ -46,10 +44,10 @@ struct TurnOrderView: View {
                                     .fill(Color(red: 0.12, green: 0.2, blue: 0.45).opacity(0.8))
                                     .overlay(
                                         Circle()
-                                            .stroke(Color(red: 0.4, green: 0.8, blue: 1.0), lineWidth: 1.5)
+                                            .stroke(Color.kemonBlue, lineWidth: 1.5)
                                     )
                             )
-                            .shadow(color: Color(red: 0.4, green: 0.8, blue: 1.0).opacity(0.5), radius: 6)
+                            .shadow(color: Color.kemonBlue.opacity(0.5), radius: 6)
                         
                         SlotReelView(
                             position: position,
@@ -113,7 +111,7 @@ struct TurnOrderView: View {
                         // Spinning Feedback
                         Text("SHUFFLING REELS...")
                             .font(.poppinsBold(size: 16))
-                            .foregroundStyle(Color(red: 0.4, green: 0.8, blue: 1.0))
+                            .foregroundStyle(Color.kemonBlue)
                             .meloGlowText()
                             .padding(.bottom, 24)
                     } else if !hasSpun {
@@ -214,7 +212,7 @@ struct TurnOrderView: View {
 
 // MARK: - Slot Reel View
 
-struct SlotReelView: View {
+private struct SlotReelView: View {
     let position: Int
     let players: [Player]
     let targetPlayerIndex: Int

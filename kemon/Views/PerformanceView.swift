@@ -97,8 +97,8 @@ struct PerformanceView: View {
             Spacer()
 
             // Song album artwork (large)
-            songArtwork(size: 180)
-                .shadow(color: Color(red: 0.4, green: 0.8, blue: 1.0).opacity(0.3), radius: 20)
+            SongArtworkView(song: song, size: 180, cornerRadius: 20)
+                .shadow(color: Color.kemonBlue.opacity(0.3), radius: 20)
 
             // Song info
             VStack(spacing: 8) {
@@ -125,13 +125,13 @@ struct PerformanceView: View {
                     }
                     Text(playerName.uppercased())
                         .font(.poppinsBold(size: 13))
-                        .foregroundStyle(Color(red: 0.4, green: 0.8, blue: 1.0))
+                        .foregroundStyle(Color.kemonBlue)
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
                 .background(
                     Capsule()
-                        .stroke(Color(red: 0.4, green: 0.8, blue: 1.0).opacity(0.5), lineWidth: 1.5)
+                        .stroke(Color.kemonBlue.opacity(0.5), lineWidth: 1.5)
                 )
             }
 
@@ -141,7 +141,7 @@ struct PerformanceView: View {
             VStack(spacing: 12) {
                 ProgressView()
                     .controlSize(.regular)
-                    .tint(Color(red: 0.4, green: 0.8, blue: 1.0))
+                    .tint(Color.kemonBlue)
 
                 Text("PREPARING YOUR STAGE...")
                     .font(.orbitronBold(size: 12))
@@ -160,11 +160,8 @@ struct PerformanceView: View {
 
     // MARK: - Live Karaoke Stage
 
-    // Bright saturated cyan — used for the glowing card borders.
-    private static let cardCyan = Color(red: 0.24, green: 0.85, blue: 1.0)
-    // Softer pastel cyan — the player card's fill (lighter than the border).
+    // Softer pastel cyan — the player card's fill (lighter than the Color.kemonCyan border).
     private static let playerCyan = Color(red: 0.53, green: 0.83, blue: 0.93)
-    private static let inkBlue = Color(red: 0.184, green: 0.282, blue: 0.647)
     // Deep indigo fill behind the song card (matches the design, not pure black).
     private static let songNavy = Color(red: 0.09, green: 0.10, blue: 0.28)
 
@@ -233,7 +230,7 @@ struct PerformanceView: View {
         // Bottom-right: volumes panel pops over when opened
         .overlay(alignment: .bottomTrailing) {
             if showVolumePanel {
-                volumePanel
+                VolumePanel(engine: engine)
                     .padding(.trailing, 24)
                     .padding(.bottom, 120)
             }
@@ -241,57 +238,15 @@ struct PerformanceView: View {
         // Apple Music subscription / playback warning banner
         .overlay(alignment: .top) {
             if let warning = engine.playbackWarning, !dismissedWarning {
-                playbackWarningBanner(warning)
-                    .padding(.top, 128)
-                    .padding(.horizontal, 40)
-                    .transition(.move(edge: .top).combined(with: .opacity))
+                PlaybackWarningBanner(message: warning) {
+                    withAnimation(.spring(duration: 0.3)) { dismissedWarning = true }
+                }
+                .padding(.top, 128)
+                .padding(.horizontal, 40)
+                .transition(.move(edge: .top).combined(with: .opacity))
             }
         }
         .animation(.spring(duration: 0.4), value: engine.playbackWarning)
-    }
-
-    // MARK: - Playback warning banner
-
-    private func playbackWarningBanner(_ message: String) -> some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 18))
-                .foregroundStyle(.yellow)
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Can't play this song")
-                    .font(.poppinsBold(size: 14))
-                    .foregroundStyle(.white)
-                Text(message)
-                    .font(.poppinsMedium(size: 12))
-                    .foregroundStyle(.white.opacity(0.75))
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
-            Spacer(minLength: 8)
-
-            Button {
-                withAnimation(.spring(duration: 0.3)) { dismissedWarning = true }
-            } label: {
-                Image(systemName: "xmark")
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundStyle(.white.opacity(0.7))
-                    .frame(width: 28, height: 28)
-                    .background(Color.white.opacity(0.1), in: Circle())
-            }
-            .buttonStyle(.plain)
-        }
-        .padding(16)
-        .frame(maxWidth: 560)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color(red: 0.16, green: 0.10, blue: 0.10).opacity(0.96))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(Color.yellow.opacity(0.5), lineWidth: 1.5)
-        )
-        .shadow(color: .black.opacity(0.4), radius: 16)
     }
 
     // MARK: - Top: Player + Song card (centered)
@@ -305,13 +260,13 @@ struct PerformanceView: View {
             VStack(spacing: 7) {
                 Text(playerName.isEmpty ? "Singer" : playerName)
                     .font(.poppinsBold(size: 13))
-                    .foregroundStyle(Self.inkBlue)
+                    .foregroundStyle(Color.kemonInkBlue)
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 3)
                     .background(Capsule().fill(Color.white.opacity(0.55)))
-                    .overlay(Capsule().stroke(Self.inkBlue, lineWidth: 1.5))
+                    .overlay(Capsule().stroke(Color.kemonInkBlue, lineWidth: 1.5))
 
                 avatarSquare(size: 46)
             }
@@ -319,12 +274,12 @@ struct PerformanceView: View {
             .padding(.vertical, 8)
             .frame(width: Self.topCardHeight, height: Self.topCardHeight)
             .background(RoundedRectangle(cornerRadius: 18).fill(Self.playerCyan))
-            .overlay(RoundedRectangle(cornerRadius: 18).stroke(Self.cardCyan, lineWidth: 2))
-            .shadow(color: Self.cardCyan.opacity(0.5), radius: 10)
+            .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.kemonCyan, lineWidth: 2))
+            .shadow(color: Color.kemonCyan.opacity(0.5), radius: 10)
 
             // Song card — wider rectangle, matches the player card's height
             HStack(spacing: 14) {
-                songArtwork(size: 56)
+                SongArtworkView(song: song, size: 56, cornerRadius: 10)
                     .grayscale(1.0)
 
                 VStack(alignment: .leading, spacing: 4) {
@@ -334,7 +289,7 @@ struct PerformanceView: View {
                         .lineLimit(1)
                     Text(song.artist)
                         .font(.poppinsMedium(size: 14))
-                        .foregroundStyle(Self.cardCyan)
+                        .foregroundStyle(Color.kemonCyan)
                         .lineLimit(1)
                 }
                 Spacer(minLength: 0)
@@ -342,8 +297,8 @@ struct PerformanceView: View {
             .padding(.horizontal, 16)
             .frame(width: 380, height: Self.topCardHeight, alignment: .leading)
             .background(RoundedRectangle(cornerRadius: 18).fill(Self.songNavy))
-            .overlay(RoundedRectangle(cornerRadius: 18).stroke(Self.cardCyan, lineWidth: 2))
-            .shadow(color: Self.cardCyan.opacity(0.5), radius: 10)
+            .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.kemonCyan, lineWidth: 2))
+            .shadow(color: Color.kemonCyan.opacity(0.5), radius: 10)
         }
         .fixedSize()
     }
@@ -377,7 +332,7 @@ struct PerformanceView: View {
                 compactVoiceHUD
             }
 
-            if hasNonLatinLyrics {
+            if engine.hasNonLatinLyrics {
                 romanizeButton
             }
 
@@ -443,63 +398,6 @@ struct PerformanceView: View {
         .background(Color.black.opacity(0.6), in: Capsule())
     }
 
-    // MARK: - Volume Panel
-
-    private var volumePanel: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Volumes")
-                .font(.poppinsBold(size: 16))
-                .foregroundStyle(.white)
-
-            if engine.canSuppressVocals {
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        Text("Lead Vocals")
-                            .font(.poppinsMedium(size: 14))
-                            .foregroundStyle(.white)
-                        Spacer()
-                        Text(engine.vocalSuppressed ? "0%" : "100%")
-                            .font(.poppinsBold(size: 14))
-                            .foregroundStyle(Color.kemonBlue)
-                    }
-                    // The engine only toggles vocals on/off, so this slider snaps
-                    // between full and muted rather than being continuous.
-                    Slider(
-                        value: Binding(
-                            get: { engine.vocalSuppressed ? 0 : 100 },
-                            set: { engine.vocalSuppressed = $0 < 50 }
-                        ),
-                        in: 0...100
-                    )
-                    .tint(Color.kemonBlue)
-                }
-            } else {
-                Text("Vocal control isn't available for this track.")
-                    .font(.poppinsMedium(size: 12))
-                    .foregroundStyle(.white.opacity(0.55))
-            }
-        }
-        .foregroundStyle(.white)
-        .padding(20)
-        .frame(width: 300)
-        .background(
-            LinearGradient(
-                colors: [
-                    Color(red: 0.10, green: 0.12, blue: 0.30).opacity(0.96),
-                    Color(red: 0.18, green: 0.10, blue: 0.32).opacity(0.96)
-                ],
-                startPoint: .topLeading, endPoint: .bottomTrailing
-            )
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 20))
-        .overlay(
-            RoundedRectangle(cornerRadius: 20)
-                .stroke(Color.kemonBlue.opacity(0.6), lineWidth: 1.5)
-        )
-        .shadow(color: Color.kemonBlue.opacity(0.3), radius: 18)
-        .transition(.scale(scale: 0.9).combined(with: .opacity))
-    }
-
     // MARK: - Lyrics (Dominant Center)
 
     private func lyricsView(width: CGFloat) -> some View {
@@ -563,9 +461,9 @@ struct PerformanceView: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: 28)
-                .stroke(Self.cardCyan, lineWidth: 2)
+                .stroke(Color.kemonCyan, lineWidth: 2)
         )
-        .shadow(color: Self.cardCyan.opacity(0.45), radius: 14)
+        .shadow(color: Color.kemonCyan.opacity(0.45), radius: 14)
     }
 
     private var liveScoreChip: some View {
@@ -630,18 +528,9 @@ struct PerformanceView: View {
 
     // MARK: - Progress Bar
 
-    /// Estimated track length: last lyric timestamp + buffer, or a fallback.
-    /// Used to map the progress bar's fraction to a seek time.
-    private var estimatedDuration: TimeInterval {
-        if let lastLine = engine.lyrics.last {
-            return lastLine.time + 15 // add ~15s buffer after last lyric
-        }
-        return max(180, engine.elapsed + 30) // fallback: 3 min or current + 30s
-    }
-
     private var progressBar: some View {
         GeometryReader { geo in
-            let duration = estimatedDuration
+            let duration = engine.estimatedDuration
             let liveProgress = min(1, engine.elapsed / max(1, duration))
             // While dragging, follow the finger; otherwise follow the clock.
             let progress = scrubProgress ?? liveProgress
@@ -657,7 +546,7 @@ struct PerformanceView: View {
                 Capsule()
                     .fill(
                         LinearGradient(
-                            colors: [Color(red: 0.4, green: 0.8, blue: 1.0), Color(red: 0.6, green: 0.4, blue: 1.0)],
+                            colors: [Color.kemonBlue, Color(red: 0.6, green: 0.4, blue: 1.0)],
                             startPoint: .leading, endPoint: .trailing
                         )
                     )
@@ -716,61 +605,10 @@ struct PerformanceView: View {
         .clipShape(RoundedRectangle(cornerRadius: 10))
     }
 
-    // MARK: - Song Artwork Helper
-
-    @ViewBuilder
-    private func songArtwork(size: CGFloat) -> some View {
-        if let urlString = song.artworkURLString, let url = URL(string: urlString) {
-            AsyncImage(url: url) { phase in
-                switch phase {
-                case .success(let image):
-                    image.resizable().aspectRatio(contentMode: .fill)
-                default:
-                    defaultSongArtwork(size: size)
-                }
-            }
-            .frame(width: size, height: size)
-            .clipShape(RoundedRectangle(cornerRadius: size > 80 ? 20 : 10))
-        } else {
-            defaultSongArtwork(size: size)
-                .frame(width: size, height: size)
-        }
-    }
-
-    private func defaultSongArtwork(size: CGFloat) -> some View {
-        let hue = Double(abs(song.title.hashValue) % 100) / 100.0
-        return RoundedRectangle(cornerRadius: size > 80 ? 20 : 10)
-            .fill(LinearGradient(
-                colors: [
-                    Color(hue: hue, saturation: 0.5, brightness: 0.7),
-                    Color(hue: hue, saturation: 0.65, brightness: 0.4),
-                ],
-                startPoint: .topLeading, endPoint: .bottomTrailing
-            ))
-            .frame(width: size, height: size)
-            .overlay {
-                Image(systemName: "music.note")
-                    .font(.system(size: size * 0.3))
-                    .foregroundStyle(.white.opacity(0.8))
-            }
-    }
-
     // MARK: - Lyric Helpers
 
     private func lyricText(for text: String) -> String {
-        guard showRomanized else { return text }
-        return text.applyingTransform(.toLatin, reverse: false)?
-            .applyingTransform(.stripDiacritics, reverse: false) ?? text
-    }
-
-    private var hasNonLatinLyrics: Bool {
-        for line in engine.lyrics {
-            if let transformed = line.text.applyingTransform(.toLatin, reverse: false),
-               transformed != line.text {
-                return true
-            }
-        }
-        return false
+        showRomanized ? text.romanizedLatin : text
     }
 
     /// The current line plus two of context on each side for the scrolling lyric display.

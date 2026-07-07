@@ -15,7 +15,7 @@ struct RoundIntroView: View {
         VStack(spacing: 32) {
             Text("Round \(battle.currentRound) of \(battle.roundCount)")
                 .font(.system(size: 18, weight: .bold, design: .monospaced))
-                .foregroundStyle(Color(red: 0.4, green: 0.8, blue: 1.0))
+                .foregroundStyle(Color.kemonBlue)
                 .tracking(2.0)
                 .meloGlowText()
 

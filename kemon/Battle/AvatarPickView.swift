@@ -18,14 +18,12 @@ struct AvatarPickView: View {
     var body: some View {
         VStack(spacing: 28) {
             Spacer().frame(height: 8)
-            
-            // Screen Title
-            Text("Karoeke Battle")
+
+            Text("Karaoke Battle")
                 .font(.orbitronBlack(size: 44))
                 .foregroundStyle(.white)
                 .meloGlowText()
-            
-            // Player slots row
+
             HStack(spacing: 20) {
                 ForEach(0..<battle.playerCount, id: \.self) { pIndex in
                     if battle.players.indices.contains(pIndex) {
@@ -50,7 +48,7 @@ struct AvatarPickView: View {
             // Subtitle & Avatar grid wrapped in a fixed-width container to force square cells and perfect alignment
             VStack(spacing: 18) {
                 HStack {
-                    Text("CHOSEE YOUR AVATAR")
+                    Text("CHOOSE YOUR AVATAR")
                         .font(.orbitronBold(size: 15))
                         .foregroundStyle(.white.opacity(0.8))
                     
@@ -58,12 +56,12 @@ struct AvatarPickView: View {
                     
                     Text("• P\(index + 1) SELECTING")
                         .font(.poppinsBold(size: 12))
-                        .foregroundStyle(Color(red: 0.4, green: 0.8, blue: 1.0))
+                        .foregroundStyle(Color.kemonBlue)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 5)
                         .background(
                             Capsule()
-                                .stroke(Color(red: 0.4, green: 0.8, blue: 1.0), lineWidth: 1.5)
+                                .stroke(Color.kemonBlue, lineWidth: 1.5)
                         )
                 }
                 
@@ -80,10 +78,10 @@ struct AvatarPickView: View {
                                     .overlay(
                                         RoundedRectangle(cornerRadius: 18)
                                             .stroke(
-                                                isAvatarSelectedForCurrentPlayer(avatar) ? Color(red: 0.4, green: 0.8, blue: 1.0) : Color.white.opacity(0.12),
+                                                isAvatarSelectedForCurrentPlayer(avatar) ? Color.kemonBlue : Color.white.opacity(0.12),
                                                 lineWidth: isAvatarSelectedForCurrentPlayer(avatar) ? 2.5 : 1
                                             )
-                                            .shadow(color: Color(red: 0.4, green: 0.8, blue: 1.0), radius: isAvatarSelectedForCurrentPlayer(avatar) ? 8 : 0)
+                                            .shadow(color: Color.kemonBlue, radius: isAvatarSelectedForCurrentPlayer(avatar) ? 8 : 0)
                                     )
 
                                 Image(avatar.imageName)
@@ -161,7 +159,7 @@ struct AvatarPickView: View {
 }
 
 /// A horizontal card slot for fighters on the selection screen.
-struct PlayerSlotCard: View {
+private struct PlayerSlotCard: View {
     let index: Int
     let player: Player
     let isActive: Bool
@@ -183,7 +181,7 @@ struct PlayerSlotCard: View {
                             .overlay(
                                 Circle()
                                     .stroke(
-                                        isActive ? Color(red: 0.4, green: 0.8, blue: 1.0) : Color.white.opacity(0.2),
+                                        isActive ? Color.kemonBlue : Color.white.opacity(0.2),
                                         style: StrokeStyle(lineWidth: 1.5, dash: isActive ? [] : [4])
                                     )
                             )
@@ -235,8 +233,8 @@ struct PlayerSlotCard: View {
                         .fill(Color.white.opacity(isActive ? 0.08 : 0.03))
                         .overlay(
                             RoundedRectangle(cornerRadius: 16)
-                                .stroke(isActive ? Color(red: 0.4, green: 0.8, blue: 1.0) : Color.white.opacity(0.12), lineWidth: 1.5)
-                                .shadow(color: Color(red: 0.4, green: 0.8, blue: 1.0), radius: isActive ? 6 : 0)
+                                .stroke(isActive ? Color.kemonBlue : Color.white.opacity(0.12), lineWidth: 1.5)
+                                .shadow(color: Color.kemonBlue, radius: isActive ? 6 : 0)
                         )
                 )
                 

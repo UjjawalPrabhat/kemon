@@ -11,33 +11,21 @@ import Foundation
 
 struct ScoringMatrix {
     private(set) var accumulatedSimilarity: Double = 0
-    private(set) var sampleCount: Int = 0
-    /// Fraction of ingested frames where a face was actually found.
+    /// Number of ingested frames where a face was actually found.
     private(set) var facePresenceCount: Int = 0
 
-    /// Similarity of the most recent frame, 0...1 — drives live UI feedback.
-    private(set) var lastSimilarity: Double = 0
-
     mutating func ingest(_ reading: EmotionReading, genre: SongGenre) {
-        sampleCount += 1
-        guard reading.faceDetected else {
-            lastSimilarity = 0
-            return
-        }
+        guard reading.faceDetected else { return }
         facePresenceCount += 1
-        let similarity = Self.cosineSimilarity(
+        accumulatedSimilarity += Self.cosineSimilarity(
             reading.confidences,
             genre.targetProfile
         )
-        lastSimilarity = similarity
-        accumulatedSimilarity += similarity
     }
 
     mutating func reset() {
         accumulatedSimilarity = 0
-        sampleCount = 0
         facePresenceCount = 0
-        lastSimilarity = 0
     }
 
     /// Mean similarity over frames where a face was present, as 0–100.

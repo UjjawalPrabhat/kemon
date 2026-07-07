@@ -36,6 +36,22 @@ final class KemonEngine {
     /// Resolved timed lyrics for the active song (from a bundled .lrc if present).
     private(set) var lyrics: [LyricLine] = []
 
+    /// Estimated track length: last lyric timestamp + buffer, or a fallback when
+    /// there are no lyrics. Neither playback source exposes an exact duration
+    /// synchronously, so the progress bar maps its fraction against this.
+    var estimatedDuration: TimeInterval {
+        if let lastLine = lyrics.last {
+            return lastLine.time + 15   // ~15s buffer after the last lyric
+        }
+        return max(180, elapsed + 30)   // fallback: 3 min, or current + 30s
+    }
+
+    /// True when the lyrics contain non-Latin script, so the UI can offer a
+    /// romanize toggle.
+    var hasNonLatinLyrics: Bool {
+        lyrics.contains { $0.text.containsNonLatinScript }
+    }
+
     let camera: CameraController
 
     /// Captures + analyses the singer's voice. Owns the shared AVAudioEngine
@@ -63,25 +79,11 @@ final class KemonEngine {
     private var song: Song?
     private var clock: Timer?
 
-    /// True when the real Core ML model was found and loaded; false while
-    /// running on the geometry-based placeholder. Useful for a debug badge.
-    let usingTrainedModel: Bool
-
-    /// Uses the trained Core ML model if `EmotionClassifier.mlmodelc` is in the
-    /// bundle, otherwise falls back to the placeholder so the app still runs.
+    /// Uses the trained Core ML model if `KemonEmotionClassifier.mlmodelc` is in
+    /// the bundle, otherwise falls back to the placeholder so the app still runs.
     /// Pass an explicit analyzer to override (e.g. in tests).
     init(analyzer: EmotionAnalyzing? = nil) {
-        let resolved: EmotionAnalyzing
-        if let analyzer {
-            resolved = analyzer
-            usingTrainedModel = analyzer is CoreMLEmotionAnalyzer
-        } else if let coreML = try? CoreMLEmotionAnalyzer() {
-            resolved = coreML
-            usingTrainedModel = true
-        } else {
-            resolved = PlaceholderEmotionAnalyzer()
-            usingTrainedModel = false
-        }
+        let resolved = analyzer ?? (try? CoreMLEmotionAnalyzer()) ?? PlaceholderEmotionAnalyzer()
         camera = CameraController(analyzer: resolved)
 
         // Local playback attaches its player node to the mic's shared engine so
@@ -100,9 +102,6 @@ final class KemonEngine {
         #endif
     }
 
-    /// The face-analysis source (Core ML + Vision camera pipeline).
-    private var activeSource: FaceSource { camera }
-
     // MARK: - Session control
 
     /// Begin a performance for `song`: camera + mic warm up, then audio and
@@ -116,7 +115,7 @@ final class KemonEngine {
         if lyrics.isEmpty {
             fetchRemoteLyrics(for: song)
         }
-        smoothed = [:]
+        fusion.reset()
         score.reset()
         voiceScore.reset()
         voiceScore.setLyricLines(lyrics)
@@ -131,7 +130,7 @@ final class KemonEngine {
 
         playback = makePlaybackSource(for: song)
         let isAppleMusic = song.source == .appleMusic
-        activeSource.start()
+        camera.start()
 
         Task { @MainActor in
             if isAppleMusic {
@@ -202,7 +201,7 @@ final class KemonEngine {
     }
 
     /// Toggles vocal suppression on the backing track (local sources only).
-    func setVocalSuppress(_ enabled: Bool) {
+    private func setVocalSuppress(_ enabled: Bool) {
         guard playback.supportsVocalSuppression else { return }
         playback.vocalSuppressionEnabled = enabled
     }
@@ -313,28 +312,8 @@ final class KemonEngine {
 
     // MARK: - Frame ingestion
 
-    /// Per-emotion sensitivity applied to the raw model output before picking a
-    /// winner. `happy` is now carried mostly by Vision geometry (below), so this
-    /// is a gentle nudge, not a crutch.
-    private let sensitivity: [Emotion: Double] = [
-        .happy:     1.2,
-        .energetic: 1.3,
-        .sad:       1.1,
-        .neutral:   1.0,
-    ]
-
-    /// How much the geometric smile (Vision landmarks) vs the model contributes
-    /// to `happy` in MODEL mode. Vision leads, but not so hard it swamps the
-    /// other emotions. Smiles below `smileGate` are ignored so a relaxed mouth
-    /// doesn't drift into "happy".
-    private let happyModelWeight  = 0.4
-    private let happyVisionWeight = 0.6
-    private let smileGate         = 0.35
-
-    /// EMA weight for the newest frame (0–1). Lower = smoother/steadier badge,
-    /// higher = snappier. Smoothing stops the label flickering frame-to-frame.
-    private let smoothingFactor = 0.45
-    private var smoothed: [Emotion: Double] = [:]
+    /// Fuses raw camera readings into the smoothed emotion used for scoring.
+    private var fusion = EmotionFusion()
 
     /// Debug: raw model confidences + smile from the latest frame (pre-fusion).
     private(set) var debugConfidences: [Emotion: Double] = [:]
@@ -348,34 +327,7 @@ final class KemonEngine {
         debugConfidences = reading.confidences
         debugSmile = reading.smile
 
-        // Sensitivity-scale the classifier, then fuse the gated Vision smile
-        // into `happy` (which the static-image model reads weakly while singing).
-        var calibrated: [Emotion: Double] = [:]
-        for e in Emotion.allCases {
-            calibrated[e] = reading.confidence(of: e) * (sensitivity[e] ?? 1)
-        }
-        let gatedSmile = reading.smile < smileGate ? 0 : reading.smile
-        calibrated[.happy] = calibrated[.happy]! * happyModelWeight
-                           + gatedSmile * happyVisionWeight
-
-        // Renormalise to a probability vector.
-        let total = calibrated.values.reduce(0, +)
-        if total > 0 { for e in Emotion.allCases { calibrated[e]! /= total } }
-
-        // 4) Exponential moving average over recent frames.
-        for e in Emotion.allCases {
-            let prev = smoothed[e] ?? calibrated[e]!
-            smoothed[e] = prev * (1 - smoothingFactor) + calibrated[e]! * smoothingFactor
-        }
-
-        let dominant = smoothed.max { $0.value < $1.value }?.key ?? .neutral
-        let adjusted = EmotionReading(
-            dominant: dominant,
-            confidences: smoothed,
-            faceDetected: true,
-            mediaTime: elapsed,
-            smile: reading.smile
-        )
+        let adjusted = fusion.fuse(reading)
         currentReading = adjusted
         guard isPerforming, let song else { return }
         score.ingest(adjusted, genre: song.genre)

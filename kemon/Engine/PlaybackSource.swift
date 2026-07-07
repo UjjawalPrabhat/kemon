@@ -22,8 +22,6 @@ protocol PlaybackSource: AnyObject {
     /// Master clock: seconds elapsed in the track. Drives lyric sync + scoring.
     var currentTime: TimeInterval { get }
 
-    var isPlaying: Bool { get }
-
     /// True once playback has run past the end of the track.
     var didFinish: Bool { get }
 
