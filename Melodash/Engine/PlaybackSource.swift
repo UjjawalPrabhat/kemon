@@ -30,12 +30,6 @@ protocol PlaybackSource: AnyObject {
     /// user as a warning. Nil means playback is expected to work.
     var unavailableReason: String? { get }
 
-    /// Whether this source can dim the lead vocal. False for MusicKit (DRM).
-    var supportsVocalSuppression: Bool { get }
-
-    /// When true (and supported), playback uses the vocal-suppressed mix.
-    var vocalSuppressionEnabled: Bool { get set }
-
     /// Loads/queues the song. Async because MusicKit prepares over the network.
     func prepare(for song: Song) async
 
@@ -58,4 +52,19 @@ extension PlaybackSource {
     func seek(to time: TimeInterval) {}
     /// Local sources always play; only Apple Music can be unavailable.
     var unavailableReason: String? { nil }
+}
+
+/// A playback source that can dim the lead vocal. Only local PCM sources can —
+/// DRM sources (Apple Music) never see the samples, so they simply don't
+/// conform, and the vocal-suppress toggle is offered only when `playback is
+/// VocalSuppressing`. Split out of `PlaybackSource` so the base seam stays lean
+/// (Interface Segregation).
+@MainActor
+protocol VocalSuppressing: AnyObject {
+    /// Whether the *currently loaded track* can actually be suppressed (e.g. a
+    /// mono file can't), distinct from the source type merely supporting it.
+    var canSuppressVocals: Bool { get }
+
+    /// When true (and `canSuppressVocals`), playback uses the suppressed mix.
+    var vocalSuppressionEnabled: Bool { get set }
 }

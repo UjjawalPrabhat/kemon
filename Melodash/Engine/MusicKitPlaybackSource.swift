@@ -37,9 +37,8 @@ final class MusicKitPlaybackSource: PlaybackSource {
 
     var currentTime: TimeInterval { player.playbackTime }
 
-    // No sample access → suppression can never be offered.
-    let supportsVocalSuppression = false
-    var vocalSuppressionEnabled = false
+    // No sample access → suppression can never be offered, so this source does
+    // not conform to VocalSuppressing (and the toggle is never shown for it).
 
     /// Set by `prepare` when the track can't play — almost always a missing or
     /// inactive Apple Music subscription. Read by the engine to warn the user.

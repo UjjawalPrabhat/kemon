@@ -101,10 +101,10 @@ final class MelodashEngine {
 
         // self is fully initialised past this point — safe to capture.
         camera.onReading = { [weak self] reading in
-            self?.handle(reading)
+            self?.ingest(emotion: reading)
         }
         mic.onReading = { [weak self] reading in
-            self?.handle(voice: reading)
+            self?.ingest(voice: reading)
         }
         #if os(iOS)
         observeInterruptions()
@@ -156,7 +156,7 @@ final class MelodashEngine {
                 // ApplicationMusicPlayer's mediaserverd connection
                 // ("ping did not pong" → prepareToPlay fails → silence).
                 await playback.prepare(for: song)
-                canSuppressVocals = playback.supportsVocalSuppression
+                canSuppressVocals = (playback as? VocalSuppressing)?.canSuppressVocals ?? false
                 playbackWarning = playback.unavailableReason
                 // Now start the mic — this sets .playAndRecord + starts the
                 // engine. MusicKit's player is already prepared and tolerates
@@ -174,7 +174,7 @@ final class MelodashEngine {
                 // when in a disconnected state" crash.
                 mic.configureSession()
                 await playback.prepare(for: song)
-                canSuppressVocals = playback.supportsVocalSuppression
+                canSuppressVocals = (playback as? VocalSuppressing)?.canSuppressVocals ?? false
                 mic.start()
             }
 
@@ -219,8 +219,8 @@ final class MelodashEngine {
 
     /// Toggles vocal suppression on the backing track (local sources only).
     private func setVocalSuppress(_ enabled: Bool) {
-        guard playback.supportsVocalSuppression else { return }
-        playback.vocalSuppressionEnabled = enabled
+        guard let suppressor = playback as? VocalSuppressing, suppressor.canSuppressVocals else { return }
+        suppressor.vocalSuppressionEnabled = enabled
     }
 
     /// Resolves lyrics for a song with none locally (Apple Music tracks), then
@@ -334,7 +334,7 @@ final class MelodashEngine {
     private(set) var debugConfidences: [Emotion: Double] = [:]
     private(set) var debugSmile: Double = 0
 
-    private func handle(_ reading: EmotionReading) {
+    private func ingest(emotion reading: EmotionReading) {
         guard reading.faceDetected else {
             currentReading = reading            // "No face" — don't score
             return
@@ -350,7 +350,7 @@ final class MelodashEngine {
 
     /// Ingests one microphone reading: stamps it with the audio clock, exposes
     /// it for the live pitch/energy UI, and feeds it to the voice score.
-    private func handle(voice reading: VoiceReading) {
+    private func ingest(voice reading: VoiceReading) {
         var stamped = reading
         stamped.mediaTime = elapsed
         currentVoice = stamped

@@ -228,7 +228,7 @@ nonisolated final class MicController: NSObject, @unchecked Sendable {
         guard let f0 = est.f0, est.confidence >= confidenceFloor else { return reading }
 
         let smoothed = medianFiltered(f0)
-        let (note, cents) = PitchMath.nearestNoteAndCents(fromMIDI: PitchMath.midi(fromHz: smoothed))
+        let (note, cents) = PitchMath.nearestNoteAndCents(fromMIDI: PitchMath.midi(fromHertz: smoothed))
         reading.f0 = smoothed
         reading.nearestNote = note
         reading.centsOff = cents

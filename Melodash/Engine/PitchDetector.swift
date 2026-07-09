@@ -181,7 +181,7 @@ nonisolated final class PitchDetector: @unchecked Sendable {
 enum PitchMath {
     /// MIDI note number for a frequency (A4 = MIDI 69 = 440 Hz). Continuous.
     /// `nonisolated` so the realtime audio thread can call it.
-    nonisolated static func midi(fromHz hz: Double) -> Double {
+    nonisolated static func midi(fromHertz hz: Double) -> Double {
         69 + 12 * log2(hz / 440)
     }
 

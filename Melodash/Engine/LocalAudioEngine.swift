@@ -16,7 +16,7 @@
 import AVFoundation
 
 @MainActor
-final class LocalAudioEngine: PlaybackSource {
+final class LocalAudioEngine: PlaybackSource, VocalSuppressing {
 
     private let engine: AVAudioEngine
     private let player = AVAudioPlayerNode()
@@ -50,13 +50,14 @@ final class LocalAudioEngine: PlaybackSource {
         self.separator = separator
     }
 
-    // MARK: - PlaybackSource
+    // MARK: - PlaybackSource / VocalSuppressing
 
-    var supportsVocalSuppression: Bool { canSuppress }
+    /// True once a stereo track is loaded (mono can't be center-channel suppressed).
+    var canSuppressVocals: Bool { canSuppress }
 
     var vocalSuppressionEnabled: Bool = false {
         didSet {
-            guard oldValue != vocalSuppressionEnabled, supportsVocalSuppression else { return }
+            guard oldValue != vocalSuppressionEnabled, canSuppressVocals else { return }
             rescheduleFromCurrentPosition()
         }
     }

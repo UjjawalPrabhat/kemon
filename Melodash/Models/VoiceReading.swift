@@ -10,8 +10,11 @@
 
 import Foundation
 
-/// One frame of voice analysis from the microphone. `nonisolated` because it is
-/// produced on the realtime audio thread and read on the main actor.
+/// One frame of voice analysis from the microphone. A `Sendable` value type so
+/// it can cross from the realtime audio thread (where it's produced) to the
+/// main actor (where it's read) without data races. `nonisolated` is required:
+/// this app builds with default main-actor isolation, so without it the struct
+/// (and `.empty`) would be main-actor-isolated and unusable from the audio tap.
 nonisolated struct VoiceReading: Sendable {
     /// Detected fundamental frequency in Hz, or nil when the frame is unvoiced
     /// (silence, breath, or the pitch detector wasn't confident).
