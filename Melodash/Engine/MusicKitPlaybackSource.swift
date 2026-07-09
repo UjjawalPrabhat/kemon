@@ -37,6 +37,8 @@ final class MusicKitPlaybackSource: PlaybackSource {
 
     var currentTime: TimeInterval { player.playbackTime }
 
+    let sessionActivation: SessionActivation = .afterPrepare
+
     // No sample access → suppression can never be offered, so this source does
     // not conform to VocalSuppressing (and the toggle is never shown for it).
 

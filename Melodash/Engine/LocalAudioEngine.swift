@@ -52,6 +52,8 @@ final class LocalAudioEngine: PlaybackSource, VocalSuppressing {
 
     // MARK: - PlaybackSource / VocalSuppressing
 
+    let sessionActivation: SessionActivation = .beforePrepare
+
     /// True once a stereo track is loaded (mono can't be center-channel suppressed).
     var canSuppressVocals: Bool { canSuppress }
 

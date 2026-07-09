@@ -17,10 +17,31 @@
 
 import Foundation
 
+/// How the shared `AVAudioSession` must be brought up around a source's
+/// `prepare()`. Declared by each source so the engine sequences the session
+/// without knowing the concrete type (DIP) — the ordering is subtle and
+/// source-specific, so it belongs to the source, not a `song.source` switch.
+enum SessionActivation {
+    /// Configure the session first, THEN `prepare` (which attaches the player
+    /// node to the still-stopped engine), THEN start the mic with echo
+    /// cancellation. Local PCM sources — prevents the "player started when in a
+    /// disconnected state" crash.
+    case beforePrepare
+    /// `prepare` FIRST — MusicKit must own the media-server connection before we
+    /// touch the session — THEN start the mic *without* the voice-processing
+    /// (VPIO) unit and *with* `.mixWithOthers`. DRM sources: the VPIO duplex unit
+    /// otherwise starves ApplicationMusicPlayer of the route ("ping did not
+    /// pong" → silence), and AEC is useless on DRM audio anyway.
+    case afterPrepare
+}
+
 @MainActor
 protocol PlaybackSource: AnyObject {
     /// Master clock: seconds elapsed in the track. Drives lyric sync + scoring.
     var currentTime: TimeInterval { get }
+
+    /// How the engine must order session setup around `prepare` for this source.
+    var sessionActivation: SessionActivation { get }
 
     /// True once playback has run past the end of the track.
     var didFinish: Bool { get }

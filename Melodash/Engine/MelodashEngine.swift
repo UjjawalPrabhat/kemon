@@ -146,37 +146,23 @@ final class MelodashEngine {
         playbackWarning = nil
 
         playback = makePlaybackSource(for: song)
-        let isAppleMusic = song.source == .appleMusic
         camera.start()
 
         Task { @MainActor in
-            if isAppleMusic {
-                // Apple Music: MusicKit must prepare BEFORE we touch the
-                // AVAudioSession. Setting .playAndRecord early disrupts
-                // ApplicationMusicPlayer's mediaserverd connection
-                // ("ping did not pong" → prepareToPlay fails → silence).
+            // The session-vs-prepare ordering is source-specific and subtle; each
+            // source declares its strategy (see `SessionActivation`) so the engine
+            // sequences it without a `song.source` type check.
+            switch playback.sessionActivation {
+            case .afterPrepare:
                 await playback.prepare(for: song)
-                canSuppressVocals = (playback as? VocalSuppressing)?.canSuppressVocals ?? false
-                playbackWarning = playback.unavailableReason
-                // Now start the mic — this sets .playAndRecord + starts the
-                // engine. MusicKit's player is already prepared and tolerates
-                // the session change at this point. Crucially, run WITHOUT the
-                // voice-processing (VPIO) unit and WITH .mixWithOthers: the VPIO
-                // duplex unit otherwise starves ApplicationMusicPlayer of the
-                // audio route ("ping did not pong" → silence). AEC is useless on
-                // DRM audio anyway, so nothing is lost.
                 mic.start(voiceProcessing: false, mixWithOthers: true)
-            } else {
-                // Local songs: configure the session first, THEN prepare
-                // (which attaches the AVAudioPlayerNode to the still-stopped
-                // engine), THEN start the mic (which starts the engine with
-                // all nodes connected). This prevents the "player started
-                // when in a disconnected state" crash.
+            case .beforePrepare:
                 mic.configureSession()
                 await playback.prepare(for: song)
-                canSuppressVocals = (playback as? VocalSuppressing)?.canSuppressVocals ?? false
                 mic.start()
             }
+            canSuppressVocals = (playback as? VocalSuppressing)?.canSuppressVocals ?? false
+            playbackWarning = playback.unavailableReason
 
             playback.play()
             isPerforming = true
