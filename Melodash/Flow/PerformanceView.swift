@@ -505,7 +505,7 @@ struct PerformanceView: View {
     /// stop before the song is over.
     private var finishButton: some View {
         Button {
-            engine.stop()
+            engine.endEarly()
         } label: {
             HStack(spacing: 8) {
                 Image(systemName: "stop.fill")

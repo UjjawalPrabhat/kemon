@@ -268,6 +268,11 @@ final class MelodashEngine {
         }
     }
 
+    /// The singer chose to end the turn before the track finished. Scores the
+    /// partial performance and advances to results — same path as a natural end,
+    /// just triggered by the "End Early" button rather than the track completing.
+    func endEarly() { finish() }
+
     /// Natural end of the track: finalize scoring and flag completion so the UI
     /// hands off to the results screen. Distinct from `stop()`, which is external
     /// teardown that must NOT score the turn.
