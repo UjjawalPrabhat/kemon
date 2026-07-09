@@ -14,7 +14,7 @@ struct RoundIntroView: View {
     var body: some View {
         VStack(spacing: 32) {
             Text("Round \(battle.currentRound) of \(battle.roundCount)")
-                .font(.system(size: 18, weight: .bold, design: .monospaced))
+                .font(.orbitronBold(size: 18))
                 .foregroundStyle(Color.melodashBlue)
                 .tracking(2.0)
                 .meloGlowText()
@@ -25,11 +25,11 @@ struct RoundIntroView: View {
                     
                     VStack(spacing: 8) {
                         Text(player.displayName)
-                            .font(.system(size: 40, weight: .bold, design: .monospaced))
+                            .font(.orbitronBold(size: 40))
                             .foregroundStyle(.white)
-                        
+
                         Text(battle.isFirstTurnOfRound ? "YOU SING FIRST" : "YOU'RE UP NEXT")
-                            .font(.system(size: 16, weight: .semibold, design: .monospaced))
+                            .font(.orbitronBold(size: 14))
                             .foregroundStyle(.white.opacity(0.6))
                             .tracking(1.0)
                     }

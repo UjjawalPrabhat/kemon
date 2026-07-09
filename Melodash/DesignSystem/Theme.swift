@@ -9,32 +9,6 @@
 
 import SwiftUI
 
-// MARK: - Palette
-
-extension Color {
-    static let melodashCream = Color(red: 0.05, green: 0.05, blue: 0.15)
-    static let melodashInk = Color.white
-    static let melodashBlue = Color(red: 0.4, green: 0.8, blue: 1.0)
-    /// Brighter, more saturated cyan used for glowing card borders.
-    static let melodashCyan = Color(red: 0.24, green: 0.85, blue: 1.0)
-    /// Deep indigo used for dark-on-cyan text and outlines.
-    static let melodashInkBlue = Color(red: 0.184, green: 0.282, blue: 0.647)
-}
-
-extension LinearGradient {
-    /// The app's base deep-space vertical gradient (Figma stops), shared by the
-    /// main background and the bespoke result/finale backdrops.
-    static let melodashSpace = LinearGradient(
-        stops: [
-            .init(color: Color(red: 4.0/255.0, green: 7.0/255.0, blue: 26.0/255.0), location: 0.0),
-            .init(color: Color(red: 8.0/255.0, green: 13.0/255.0, blue: 42.0/255.0), location: 0.4),
-            .init(color: Color(red: 10.0/255.0, green: 5.0/255.0, blue: 32.0/255.0), location: 1.0)
-        ],
-        startPoint: .top,
-        endPoint: .bottom
-    )
-}
-
 // MARK: - Page scaffold
 
 enum UFOStyle {
@@ -65,14 +39,41 @@ extension View {
 // MARK: - Cards
 
 extension View {
-    func melodashGlassCard(_ cornerRadius: CGFloat = 22) -> some View {
+    /// The frosted, hairline-stroked card used throughout the app. Parameters
+    /// let one definition cover the handful of fill/stroke variations screens need.
+    func melodashGlassCard(_ cornerRadius: CGFloat = Radius.lg,
+                           fill: Color = Color.black.opacity(0.35),
+                           stroke: Color = Color.white.opacity(0.2),
+                           lineWidth: CGFloat = Stroke.thin) -> some View {
         self
-            .background(Color.black.opacity(0.35))
+            .background(fill)
             .cornerRadius(cornerRadius)
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius)
-                    .stroke(Color.white.opacity(0.2), lineWidth: 1.5)
+                    .stroke(stroke, lineWidth: lineWidth)
             )
+    }
+}
+
+// MARK: - Hover scale
+
+/// Springy grow-on-hover, extracted from the ~6 places that hand-rolled it.
+private struct HoverScale: ViewModifier {
+    var scale: CGFloat = 1.05
+    @State private var hovering = false
+    func body(content: Content) -> some View {
+        content
+            .scaleEffect(hovering ? scale : 1)
+            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: hovering)
+            .onHover { hovering = $0 }
+    }
+}
+
+extension View {
+    /// Grows the view on hover (macOS / iPad pointer). Replaces ad-hoc
+    /// `@State isHovered` + `scaleEffect` + `onHover` triples.
+    func melodashHoverScale(_ scale: CGFloat = 1.05) -> some View {
+        modifier(HoverScale(scale: scale))
     }
 }
 
@@ -99,9 +100,9 @@ struct MelodashPrimaryButton: View {
             .padding(.vertical, 20)
             .background {
                 RoundedRectangle(cornerRadius: 24)
-                    .fill(Color(red: 0.851, green: 0.886, blue: 1.0)) // #D9E2FF
+                    .fill(Color.melodashButtonFill)
             }
-            // Inner Shadow 1: White 25%, X: 0, Y: 12, Blur: 4
+            // Figma inner shadows: a white top highlight and two periwinkle edges.
             .overlay {
                 RoundedRectangle(cornerRadius: 24)
                     .stroke(Color.white.opacity(0.25), lineWidth: 8)
@@ -109,25 +110,23 @@ struct MelodashPrimaryButton: View {
                     .blur(radius: 4)
                     .mask(RoundedRectangle(cornerRadius: 24))
             }
-            // Inner Shadow 2: #A1B7FF, X: -8, Y: 0, Blur: 4
             .overlay {
                 RoundedRectangle(cornerRadius: 24)
-                    .stroke(Color(red: 0.631, green: 0.718, blue: 1.0), lineWidth: 8) // #A1B7FF
+                    .stroke(Color.melodashHighlight, lineWidth: 8)
                     .offset(x: -8)
                     .blur(radius: 4)
                     .mask(RoundedRectangle(cornerRadius: 24))
             }
-            // Inner Shadow 3: #A1B7FF, X: 0, Y: -8, Blur: 4
             .overlay {
                 RoundedRectangle(cornerRadius: 24)
-                    .stroke(Color(red: 0.631, green: 0.718, blue: 1.0), lineWidth: 8) // #A1B7FF
+                    .stroke(Color.melodashHighlight, lineWidth: 8)
                     .offset(y: -8)
                     .blur(radius: 4)
                     .mask(RoundedRectangle(cornerRadius: 24))
             }
-            // Drop Shadow: #6AD6EB, X: 0, Y: 4, Blur: 14 (grows on hover)
+            // Cyan drop-shadow glow, growing on hover.
             .shadow(
-                color: Color(red: 0.416, green: 0.839, blue: 0.922).opacity(isHovered ? 1.0 : 0.7),
+                color: Color.melodashGlow.opacity(isHovered ? 1.0 : 0.7),
                 radius: isHovered ? 20 : 14,
                 x: 0,
                 y: isHovered ? 6 : 4

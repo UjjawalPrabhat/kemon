@@ -97,21 +97,6 @@ private struct SpaceCounterRow: View {
     }
 }
 
-/// A small top-left back chevron used across the wizard screens.
-struct BackButton: View {
-    let action: () -> Void
-    var body: some View {
-        Button(action: action) {
-            Image(systemName: "chevron.backward")
-                .font(.title2.weight(.semibold))
-                .padding(12)
-        }
-        .buttonStyle(.plain)
-        .foregroundStyle(.white)
-        .padding(8)
-    }
-}
-
 #Preview {
     BattleSetupView(battle: BattleController())
 }

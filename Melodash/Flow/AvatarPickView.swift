@@ -48,21 +48,11 @@ struct AvatarPickView: View {
             // Subtitle & Avatar grid wrapped in a fixed-width container to force square cells and perfect alignment
             VStack(spacing: 18) {
                 HStack {
-                    Text("CHOOSE YOUR AVATAR")
-                        .font(.orbitronBold(size: 15))
-                        .foregroundStyle(.white.opacity(0.8))
-                    
+                    SectionLabel(text: "CHOOSE YOUR AVATAR", size: 15, opacity: 0.8)
+
                     Spacer()
                     
-                    Text("• P\(index + 1) SELECTING")
-                        .font(.poppinsBold(size: 12))
-                        .foregroundStyle(Color.melodashBlue)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 5)
-                        .background(
-                            Capsule()
-                                .stroke(Color.melodashBlue, lineWidth: 1.5)
-                        )
+                    SelectingChip(subject: "P\(index + 1)")
                 }
                 
                 LazyVGrid(columns: Array(repeating: GridItem(.fixed(108), spacing: 20), count: 6), spacing: 20) {
@@ -117,7 +107,7 @@ struct AvatarPickView: View {
             if !battle.allPlayersReady {
                 Text("Every player needs a name and an avatar to start")
                     .font(.poppinsBold(size: 12))
-                    .foregroundStyle(Color(red: 1.0, green: 0.55, blue: 0.55))
+                    .foregroundStyle(Color.melodashWarning)
             }
 
             // Bottom Action buttons

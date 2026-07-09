@@ -50,7 +50,7 @@ struct ContentView: View {
                 .id("\(battle.currentRound)-\(battle.turnIndex)")
             } else {
                 // Shouldn't happen, but never strand the user.
-                Color.melodashCream.ignoresSafeArea()
+                Color.melodashSurface.ignoresSafeArea()
                     .onAppear { battle.beginTurn() }
             }
         case .result:

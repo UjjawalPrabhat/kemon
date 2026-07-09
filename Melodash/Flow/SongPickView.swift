@@ -199,9 +199,7 @@ struct SongPickView: View {
     }
 
     private func sectionLabel(_ text: String) -> some View {
-        Text(text)
-            .font(.orbitronBold(size: 11))
-            .foregroundStyle(.white.opacity(0.4))
+        SectionLabel(text: text)
             .padding(.leading, 12)
     }
 
@@ -234,13 +232,7 @@ struct SongPickView: View {
                 HStack(alignment: .center) {
                     Spacer()
                     if let currentPlayer = battle.currentPlayer {
-                        Text("• \(currentPlayer.displayName.uppercased()) SELECTING")
-                            .font(.poppinsBold(size: 12))
-                            .foregroundStyle(Color.melodashBlue)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 5)
-                            .background(Capsule().stroke(Color.melodashBlue, lineWidth: 1.5))
-                            .meloGlowText()
+                        SelectingChip(subject: currentPlayer.displayName.uppercased())
                     }
                 }
                 .padding(.top, 28)
@@ -648,8 +640,6 @@ private struct TopSongTile: View {
     let song: Song
     let onPick: () -> Void
 
-    @State private var isHovered = false
-
     var body: some View {
         Button(action: onPick) {
             VStack(alignment: .leading, spacing: 8) {
@@ -668,11 +658,9 @@ private struct TopSongTile: View {
                     .lineLimit(1)
             }
             .frame(width: 150, alignment: .leading)
-            .scaleEffect(isHovered ? 1.03 : 1)
-            .animation(.easeOut(duration: 0.15), value: isHovered)
+            .melodashHoverScale(1.03)
         }
         .buttonStyle(.plain)
-        .onHover { isHovered = $0 }
     }
 }
 
@@ -682,8 +670,6 @@ private struct GenreTile: View {
     let genre: DisplayGenre
     let onOpen: () -> Void
 
-    @State private var isHovered = false
-
     var body: some View {
         Button(action: onOpen) {
             VStack(spacing: 12) {
@@ -692,11 +678,9 @@ private struct GenreTile: View {
                     .font(.poppinsBold(size: 14))
                     .foregroundStyle(.white)
             }
-            .scaleEffect(isHovered ? 1.03 : 1)
-            .animation(.easeOut(duration: 0.15), value: isHovered)
+            .melodashHoverScale(1.03)
         }
         .buttonStyle(.plain)
-        .onHover { isHovered = $0 }
     }
 }
 

@@ -123,7 +123,7 @@ struct LobbyView: View {
             .padding(.top, 4)
         }
         .padding(28)
-        .background(Color(red: 0.04, green: 0.06, blue: 0.16).opacity(0.96))
+        .background(Color.melodashSurface.opacity(0.96))
         .clipShape(RoundedRectangle(cornerRadius: 28))
         .overlay(
             RoundedRectangle(cornerRadius: 28)
@@ -187,7 +187,7 @@ struct LobbyView: View {
                 .frame(width: 30, height: 30)
                 .background(
                     Circle().fill(isSinging ? Color.melodashBlue.opacity(0.9)
-                                            : Color(red: 0.12, green: 0.2, blue: 0.45).opacity(0.8))
+                                            : Color.melodashSurfaceActive.opacity(0.8))
                 )
 
             AvatarBubble(avatar: slot.player.avatar, size: 44)
@@ -280,7 +280,7 @@ struct LobbyView: View {
             }
             .padding(36)
             .frame(maxWidth: 440)
-            .background(Color(red: 0.05, green: 0.05, blue: 0.14).opacity(0.98))
+            .background(Color.melodashSurface.opacity(0.98))
             .clipShape(RoundedRectangle(cornerRadius: 26))
             .overlay(
                 RoundedRectangle(cornerRadius: 26)

@@ -41,7 +41,7 @@ struct TurnOrderView: View {
                             .frame(width: 28, height: 28)
                             .background(
                                 Circle()
-                                    .fill(Color(red: 0.12, green: 0.2, blue: 0.45).opacity(0.8))
+                                    .fill(Color.melodashSurfaceActive.opacity(0.8))
                                     .overlay(
                                         Circle()
                                             .stroke(Color.melodashBlue, lineWidth: 1.5)
@@ -93,7 +93,7 @@ struct TurnOrderView: View {
             ZStack {
                 ConsoleBaseShape()
                     .fill(LinearGradient(
-                        colors: [Color(red: 0.12, green: 0.2, blue: 0.38), Color(red: 0.06, green: 0.1, blue: 0.2)],
+                        colors: [Color.melodashSurfaceActive, Color(red: 0.06, green: 0.1, blue: 0.2)],
                         startPoint: .top, endPoint: .bottom
                     ))
                     .frame(height: 180)

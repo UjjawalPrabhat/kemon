@@ -16,9 +16,9 @@ struct WinnersView: View {
     private var leaderboard: [Player] { battle.leaderboard }
 
     // Podium accent colors, by rank.
-    private static let gold = Color(red: 0.96, green: 0.77, blue: 0.09)      // #F5C518
+    private static let gold = Color.melodashGold      // #F5C518
     private static let periwinkle = Color(red: 0.72, green: 0.78, blue: 0.95) // #B9C6F2
-    private static let orange = Color(red: 0.96, green: 0.46, blue: 0.12)     // #F5751E
+    private static let orange = Color.melodashOrange     // #F5751E
 
     var body: some View {
         ZStack {
@@ -182,7 +182,7 @@ struct WinnersView: View {
         .frame(width: 150)
         .background(
             RoundedRectangle(cornerRadius: 22)
-                .fill(Color(red: 0.05, green: 0.06, blue: 0.16))
+                .fill(Color.melodashSurface)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 22)
@@ -241,8 +241,6 @@ struct MelodashDarkButton: View {
     let title: String
     let action: () -> Void
 
-    @State private var isHovered = false
-
     var body: some View {
         Button(action: action) {
             Text(title)
@@ -256,11 +254,9 @@ struct MelodashDarkButton: View {
                 }
                 .overlay {
                     RoundedRectangle(cornerRadius: 24)
-                        .stroke(Color.white.opacity(0.25), lineWidth: 1.5)
+                        .stroke(Color.white.opacity(0.25), lineWidth: Stroke.thin)
                 }
-                .scaleEffect(isHovered ? 1.06 : 1.0)
-                .animation(.spring(response: 0.35, dampingFraction: 0.6), value: isHovered)
-                .onHover { isHovered = $0 }
+                .melodashHoverScale(1.06)
         }
         .buttonStyle(.plain)
     }

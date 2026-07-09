@@ -163,7 +163,7 @@ struct PerformanceView: View {
     // Softer pastel cyan — the player card's fill (lighter than the Color.melodashCyan border).
     private static let playerCyan = Color(red: 0.53, green: 0.83, blue: 0.93)
     // Deep indigo fill behind the song card (matches the design, not pure black).
-    private static let songNavy = Color(red: 0.09, green: 0.10, blue: 0.28)
+    private static let songNavy = Color.melodashSurfaceRaised
 
     private var karaokeStage: some View {
         ZStack {
@@ -451,8 +451,8 @@ struct PerformanceView: View {
                 .fill(
                     LinearGradient(
                         colors: [
-                            Color(red: 0.13, green: 0.16, blue: 0.42),
-                            Color(red: 0.10, green: 0.12, blue: 0.32)
+                            Color.melodashSurfaceActive,
+                            Color.melodashSurfaceRaised
                         ],
                         startPoint: .top, endPoint: .bottom
                     )
@@ -547,7 +547,7 @@ struct PerformanceView: View {
                 Capsule()
                     .fill(
                         LinearGradient(
-                            colors: [Color.melodashBlue, Color(red: 0.6, green: 0.4, blue: 1.0)],
+                            colors: [Color.melodashBlue, Color.melodashViolet],
                             startPoint: .leading, endPoint: .trailing
                         )
                     )

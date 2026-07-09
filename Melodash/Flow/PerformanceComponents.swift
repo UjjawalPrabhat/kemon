@@ -53,7 +53,7 @@ struct VolumePanel: View {
         .background(
             LinearGradient(
                 colors: [
-                    Color(red: 0.10, green: 0.12, blue: 0.30).opacity(0.96),
+                    Color.melodashSurfaceRaised.opacity(0.96),
                     Color(red: 0.18, green: 0.10, blue: 0.32).opacity(0.96)
                 ],
                 startPoint: .topLeading, endPoint: .bottomTrailing
