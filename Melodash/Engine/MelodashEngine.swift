@@ -121,9 +121,11 @@ final class MelodashEngine {
 
     // MARK: - Session control
 
-    /// Begin a performance for `song`: camera + mic warm up, then audio and
-    /// scoring start together. Async because MusicKit prepares over the network.
-    func start(song: Song) {
+    /// Begin a performance for `song`: reset scoring, warm up camera + mic, then
+    /// start audio and the clock together. Truly `async` (MusicKit prepares over
+    /// the network); drive it from a SwiftUI `.task` so the loading state ends
+    /// when this returns.
+    func start(song: Song) async {
         self.song = song
         lyrics = LyricsLoader.lyrics(for: song)
         // No bundled/stored lyrics (typically an Apple Music track, whose lyrics
@@ -148,30 +150,34 @@ final class MelodashEngine {
         playback = makePlaybackSource(for: song)
         camera.start()
 
-        Task { @MainActor in
-            // The session-vs-prepare ordering is source-specific and subtle; each
-            // source declares its strategy (see `SessionActivation`) so the engine
-            // sequences it without a `song.source` type check.
-            switch playback.sessionActivation {
-            case .afterPrepare:
-                await playback.prepare(for: song)
-                mic.start(voiceProcessing: false, mixWithOthers: true)
-            case .beforePrepare:
-                mic.configureSession()
-                await playback.prepare(for: song)
-                mic.start()
-            }
-            canSuppressVocals = (playback as? VocalSuppressing)?.canSuppressVocals ?? false
-            playbackWarning = playback.unavailableReason
-
-            playback.play()
-            isPerforming = true
-            startClock()
+        // The session-vs-prepare ordering is source-specific and subtle; each
+        // source declares its strategy (see `SessionActivation`) so the engine
+        // sequences it without a `song.source` type check.
+        switch playback.sessionActivation {
+        case .afterPrepare:
+            await playback.prepare(for: song)
+            mic.start(voiceProcessing: false, mixWithOthers: true)
+        case .beforePrepare:
+            mic.configureSession()
+            await playback.prepare(for: song)
+            mic.start()
         }
+        canSuppressVocals = (playback as? VocalSuppressing)?.canSuppressVocals ?? false
+        playbackWarning = playback.unavailableReason
+
+        playback.play()
+        isPerforming = true
+        startClock()
     }
 
+    /// External teardown — leaving the stage or backing out to pick another song.
+    /// Deliberately does NOT set `didFinish`, so an abandoned turn is never
+    /// scored. Idempotent.
     func stop() {
-        finishPerformance()
+        isPerforming = false
+        isPaused = false
+        stopClock()
+        playback.stop()
         camera.stop()
         mic.stop()
     }
@@ -258,11 +264,14 @@ final class MelodashEngine {
 
         // End the performance when the track completes.
         if playback.didFinish {
-            finishPerformance()
+            finish()
         }
     }
 
-    private func finishPerformance() {
+    /// Natural end of the track: finalize scoring and flag completion so the UI
+    /// hands off to the results screen. Distinct from `stop()`, which is external
+    /// teardown that must NOT score the turn.
+    private func finish() {
         guard isPerforming else { return }
         isPerforming = false
         isPaused = false
@@ -271,6 +280,13 @@ final class MelodashEngine {
         mic.stop()
         voiceScore.finalize()
         didFinish = true
+    }
+
+    /// The finished turn's score breakdown, read by the UI on `didFinish`.
+    var turnResult: TurnResult {
+        TurnResult(overall: overallScore,
+                   pitch: voiceScore.inTuneness ?? 0,
+                   facialExpression: score.normalizedScore)
     }
 
     // MARK: - Audio-session interruptions

@@ -13,6 +13,9 @@ import SwiftData
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var battle = BattleController()
+    /// One engine for the whole battle, reused across turns. The performing
+    /// screen drives its `start`/`stop` lifecycle via `.task`.
+    @State private var engine = MelodashEngine()
 
     var body: some View {
         content
@@ -40,14 +43,13 @@ struct ContentView: View {
             if let song = battle.selectedSong {
                 PerformanceView(
                     song: song,
+                    engine: engine,
                     playerName: battle.currentPlayer?.displayName ?? "",
                     avatarImageName: battle.currentPlayer?.avatar?.imageName ?? "",
                     onCancel: { battle.changeSong() }
                 ) { result in
                     battle.showResult(result)
                 }
-                // Fresh MelodashEngine per turn (new round/turn ⇒ new identity).
-                .id("\(battle.currentRound)-\(battle.turnIndex)")
             } else {
                 // Shouldn't happen, but never strand the user.
                 Color.melodashSurface.ignoresSafeArea()

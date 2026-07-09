@@ -12,6 +12,8 @@ import SwiftUI
 
 struct PerformanceView: View {
     let song: Song
+    /// The battle-wide engine, owned by the root and reused across turns.
+    @Bindable var engine: MelodashEngine
     /// The singer taking this turn (shown in the header).
     var playerName: String = ""
     /// Avatar image name for the current player.
@@ -21,7 +23,6 @@ struct PerformanceView: View {
     /// Called with the final score breakdown when the singer taps Continue.
     var onFinish: (TurnResult) -> Void = { _ in }
 
-    @State private var engine = MelodashEngine()
     @State private var showRomanized = false
     @State private var showVolumePanel = false
     /// Set once the user dismisses the Apple Music subscription warning.
@@ -29,8 +30,6 @@ struct PerformanceView: View {
     /// While the user is dragging the progress bar, the previewed 0...1 position.
     /// Nil when not scrubbing, so the bar follows the live clock.
     @State private var scrubProgress: Double?
-    /// Guards against firing `onFinish` more than once as the engine finalizes.
-    @State private var didFinish = false
 
     /// True while the engine is still preparing (camera, mic, audio).
     private var isLoading: Bool {
@@ -50,28 +49,24 @@ struct PerformanceView: View {
             }
         }
         .animation(.easeInOut(duration: 0.6), value: isLoading)
-        .onAppear { engine.start(song: song) }
+        // Drives the per-turn lifecycle: starts on appear, and the awaited
+        // `start` ends the loading state. The task is cancelled on disappear.
+        .task { await engine.start(song: song) }
         .onDisappear { engine.stop() }
-        // Finishing hands off to the fullscreen results screen — no in-place modal.
+        // A natural finish flags `didFinish`; `stop()` (cancel/teardown) does not,
+        // so onFinish scores completed turns only — no double-fire latch needed.
         .onChange(of: engine.didFinish) { _, finished in
-            guard finished, !didFinish else { return }
-            didFinish = true
-            onFinish(TurnResult(
-                overall: engine.overallScore,
-                pitch: engine.voiceScore.inTuneness ?? 0,
-                facialExpression: engine.score.normalizedScore
-            ))
+            if finished { onFinish(engine.turnResult) }
         }
     }
 
     // MARK: - Change Song button
 
-    /// Backs out of this performance to reselect a song. Sets `didFinish` so the
-    /// engine's teardown (via `onDisappear`) can't fire `onFinish` and score the
-    /// abandoned track.
+    /// Backs out of this performance to reselect a song. `engine.stop()` is an
+    /// external teardown that doesn't flag `didFinish`, so the abandoned track is
+    /// never scored.
     private var changeSongButton: some View {
         Button {
-            didFinish = true
             engine.stop()
             onCancel()
         } label: {
