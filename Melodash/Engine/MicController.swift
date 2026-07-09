@@ -25,6 +25,26 @@ nonisolated final class MicController: NSObject, @unchecked Sendable {
 
     var onReading: (@MainActor (VoiceReading) -> Void)?
 
+    /// Tap-thread readings flow through this stream to a single main-actor
+    /// consumer, so delivery is ordered and doesn't spawn a Task per frame.
+    private let readings: AsyncStream<VoiceReading>
+    private let readingsContinuation: AsyncStream<VoiceReading>.Continuation
+
+    override init() {
+        (readings, readingsContinuation) = AsyncStream.makeStream()
+        super.init()
+        // One long-lived consumer delivers readings to `onReading` in order.
+        Task { [weak self] in
+            guard let stream = self?.readings else { return }
+            for await reading in stream {
+                guard let self else { return }
+                await MainActor.run { self.onReading?(reading) }
+            }
+        }
+    }
+
+    deinit { readingsContinuation.finish() }
+
     private let detector = PitchDetector()
 
     /// Analysis window/hop in samples. 2048 (~46 ms @44.1k) resolves the lowest
@@ -237,11 +257,13 @@ nonisolated final class MicController: NSObject, @unchecked Sendable {
     }
 
     /// Emits at most `minEmitInterval` apart so the UI/scoring see ~30 Hz.
+    /// `yield` is thread-safe from the realtime tap; the main-actor consumer set
+    /// up in `init` delivers each reading in order.
     private func emitThrottled(_ reading: VoiceReading) {
         let now = CACurrentMediaTime()
         guard now - lastEmit >= minEmitInterval else { return }
         lastEmit = now
-        if let onReading { Task { @MainActor in onReading(reading) } }
+        readingsContinuation.yield(reading)
     }
 
     /// Median of the last few voiced f0 values — kills single-frame octave
