@@ -200,13 +200,17 @@ final class MelodashEngine {
         }
     }
 
-    /// Scrub to `time` seconds into the track and immediately resync the lyric
-    /// highlight so the display doesn't lag a clock tick behind the jump.
+    /// Scrub to `time` seconds into the track. Optimistically jumps the UI
+    /// (progress + lyric highlight) to the *requested* position rather than
+    /// reading `playback.currentTime` straight back — some sources (MusicKit)
+    /// don't report the new time instantly, which made the display sit at the
+    /// old spot for a beat. The clock re-syncs to the true position next tick.
     func seek(to time: TimeInterval) {
         guard isPerforming else { return }
-        playback.seek(to: max(0, time))
-        elapsed = playback.currentTime
-        currentLyricIndex = lyricIndex(at: elapsed, in: lyrics)
+        let target = max(0, time)
+        playback.seek(to: target)
+        elapsed = target
+        currentLyricIndex = lyricIndex(at: target, in: lyrics)
     }
 
     /// Toggles vocal suppression on the backing track (local sources only).
