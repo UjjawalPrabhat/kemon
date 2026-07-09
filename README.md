@@ -1,6 +1,6 @@
-# Kemon
+# Melodash
 
-Kemon is an iOS karaoke app that scores **how you feel the song, not just whether you hit the notes**. As you sing, it listens to your voice *and* watches your expression, then gives live feedback and a post-song breakdown — so you can perform a song the way it was meant to be felt.
+Melodash is an iOS karaoke app that scores **how you feel the song, not just whether you hit the notes**. As you sing, it listens to your voice *and* watches your expression, then gives live feedback and a post-song breakdown — so you can perform a song the way it was meant to be felt.
 
 Everything runs **on-device** (Apple frameworks only): Vision + Core ML + ARKit for expression, Accelerate + AVAudioEngine for voice, MusicKit for Apple Music playback.
 
@@ -27,7 +27,7 @@ For local songs, the backing track and the mic share one `AVAudioEngine` so voic
 
 ## Architecture
 
-SwiftUI + SwiftData, with an `@Observable` `KemonEngine` coordinator wiring audio, camera/ARKit, and scoring off a single audio clock. Protocol seams keep it swappable:
+SwiftUI + SwiftData, with an `@Observable` `MelodashEngine` coordinator wiring audio, camera/ARKit, and scoring off a single audio clock. Protocol seams keep it swappable:
 
 - `PlaybackSource` — `LocalAudioEngine` (files) vs `MusicKitPlaybackSource` (Apple Music)
 - `VoiceSource` — `MicController` (mic capture → `PitchDetector` → `VoiceReading`)
@@ -36,13 +36,17 @@ SwiftUI + SwiftData, with an `@Observable` `KemonEngine` coordinator wiring audi
 - `EmotionAnalyzing` — the Core ML classifier, with a geometry-based placeholder fallback
 
 ```
-kemon/
-├─ Models/      Song, Emotion, VoiceReading, SampleData
-├─ Engine/      KemonEngine, PlaybackSource + LocalAudioEngine + MusicKitPlaybackSource,
-│               MicController + PitchDetector, VoiceSuppressor, ScoringMatrix + VoiceScoringMatrix,
-│               CameraController + ARFaceController + EmotionAnalyzing, LyricsLoader + LyricsService
-├─ Views/       SongListView, PerformanceView, AppleMusicSearchView, camera previews
-└─ KemonEmotionClassifier.mlmodel
+Melodash/
+├─ App/           MelodashApp, ContentView (the root screen router)
+├─ Models/        Song (+ genres), Emotion, VoiceReading, Player/Avatar, TurnResult, SampleData, SongImporter
+├─ Engine/        MelodashEngine, PlaybackSource + LocalAudioEngine + MusicKitPlaybackSource,
+│                 MicController + PitchDetector, VoiceSuppressor, ScoringMatrix + VoiceScoringMatrix,
+│                 CameraController + EmotionAnalyzing + EmotionFusion, LyricsLoader + LyricsService
+├─ Flow/          BattleController + the battle screens (Home, Setup, AvatarPick, TurnOrder,
+│                 RoundIntro, SongPick, Performance, Result, Winners, Lobby)
+├─ DesignSystem/  Theme, SpaceScene, shared components, camera preview
+└─ Resources/     Info.plist, fonts (Orbitron, Poppins); Assets and the optional
+                  MelodashEmotionClassifier.mlmodel live alongside
 ```
 
 ## Requirements
@@ -54,10 +58,10 @@ kemon/
 ## Build & run
 
 ```sh
-open kemon.xcodeproj
+open Melodash.xcodeproj
 ```
 
-Select the `kemon` scheme and run on a device. On first launch the app seeds a small bundled catalog; grant **camera** and **microphone** permission when prompted.
+Select the `Melodash` scheme and run on a device. On first launch the app seeds a small bundled catalog; grant **camera** and **microphone** permission when prompted.
 
 ## Apple Music setup
 
@@ -76,7 +80,7 @@ Lyrics for Apple Music tracks are fetched at runtime from public providers (LRCL
 
 ## Privacy
 
-Camera and microphone are processed **entirely on-device** and never uploaded or recorded to a server. The only data leaving the device is a song's title/artist, sent to fetch public synced lyrics. The app does not track users. See [`PrivacyInfo.xcprivacy`](kemon/PrivacyInfo.xcprivacy).
+Camera and microphone are processed **entirely on-device** and never uploaded or recorded to a server. The only data leaving the device is a song's title/artist, sent to fetch public synced lyrics. The app does not track users. See [`PrivacyInfo.xcprivacy`](Melodash/PrivacyInfo.xcprivacy).
 
 ## Status
 

@@ -11,5 +11,5 @@ xcuserdata/
 .DS_Store
 
 # Create ML training project — 130MB checkpoints, exceeds GitHub's file limit.
-# The exported model (kemon/KemonEmotionClassifier.mlmodel) IS committed.
+# The exported model (Melodash/MelodashEmotionClassifier.mlmodel) IS committed.
 mlproject/

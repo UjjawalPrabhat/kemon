@@ -1,6 +1,6 @@
-# Kemon — Tech Report
+# Melodash — Tech Report
 
-> Kemon (a.k.a. *Melodash*) is a local, couch-multiplayer **singing battle**: 2–5 players
+> Melodash is a local, couch-multiplayer **singing battle**: 2–5 players
 > take turns singing, and each performance is scored on-device by **how they sound**
 > (pitch, timing, dynamics) *and* **how they look** (facial expression vs. the song's vibe).
 > A space-themed wizard runs the whole battle end to end — setup, avatars, turn order,
@@ -18,7 +18,7 @@
 | **Bono**   | Engine + app architecture, MusicKit/audio, SwiftUI build |
 | **Uj**     | ML (emotion classifier), scoring, docs |
 
-We built Kemon as a small team where everyone touched code and design at some point,
+We built Melodash as a small team where everyone touched code and design at some point,
 but the split above is where each person spent most of their time.
 
 ---
@@ -53,20 +53,20 @@ be enough. Honestly, the ARKit call was mostly *"it's the branded solution, it m
   is **DRM-protected** — you get playback, not samples.
 
 **What we actually built or tested in code (not just read about):**
-- A **Core ML emotion classifier** (`KemonEmotionClassifier`, trained in a Create ML
+- A **Core ML emotion classifier** (`MelodashEmotionClassifier`, trained in a Create ML
   `.mlproj` that's checked into `mlproject/`), fed by `CameraController` via Vision landmarks.
 - A real **pitch pipeline**: `MicController` → `PitchDetector` (FFT/autocorrelation via
   **Accelerate**) → `VoiceScoringMatrix` (in-tune-ness, stability, onset timing, dynamics).
 - A shared `AVAudioEngine` where the **backing track and mic live on the same engine** so
   voice-processing echo cancellation keeps the captured voice clean on speaker.
 - Protocol seams — `FaceSource`, `VoiceSource`, `PlaybackSource` — so the concrete
-  camera/mic/playback implementations are swappable behind `KemonEngine`.
+  camera/mic/playback implementations are swappable behind `MelodashEngine`.
 - The full **battle state machine** (`BattleController`): home → setup → avatars → turn order →
   round intro → song pick → performing → result → winners.
 
 **What we discovered that we didn't expect:**
 - The single most valuable design decision was **driving everything off one audio clock**
-  (`KemonEngine.elapsed`) — lyric sync, scoring windows, and progress all read the same time,
+  (`MelodashEngine.elapsed`) — lyric sync, scoring windows, and progress all read the same time,
   which killed a whole class of drift bugs.
 - The app was *more fun as a shared-screen battle* (pass-the-mic, big TV/laptop) than as a
   solo iPhone karaoke app. That reframed the entire product.
@@ -127,7 +127,7 @@ plain playback for Apple Music) and a UX nudge to use headphones.
 
 **Final decision:**
 A **multiplatform (macOS-first) singing *battle*** built on **SwiftUI + SwiftData**, with an
-`@Observable` `KemonEngine` wiring:
+`@Observable` `MelodashEngine` wiring:
 - **Expression:** Vision landmarks + a custom **Core ML** emotion classifier (no ARKit).
 - **Voice:** **AVAudioEngine** capture + **Accelerate** FFT pitch → voice scoring matrix.
 - **Music:** **MusicKit** for Apple Music, plus bundled/imported local files with vocal-suppress.
@@ -150,7 +150,7 @@ A **multiplatform (macOS-first) singing *battle*** built on **SwiftUI + SwiftDat
 
 ### About the Frameworks
 
-Kemon genuinely uses several frameworks *together*, and the combination is the point rather than
+Melodash genuinely uses several frameworks *together*, and the combination is the point rather than
 decoration:
 - **Vision + Core ML** produce the expression signal; **AVFoundation (AVAudioEngine) +
   Accelerate** produce the voice signal. The core mechanic — *scoring how you feel a song, not
