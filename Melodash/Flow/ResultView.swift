@@ -72,6 +72,7 @@ struct ResultView: View {
         .background(resultBackground)
         .contentShape(Rectangle())
         .onTapGesture { advance() }
+        .onAppear { SoundManager.shared.playScore(for: result.overall) }
         .task { await runCountdown() }
     }
 
@@ -252,6 +253,9 @@ struct ResultView: View {
             // Hold the countdown while the player is in the Lobby.
             guard !battle.isLobbyPresented else { continue }
             secondsRemaining -= 1
+            // Tick the countdown cue over the final few seconds (after the score
+            // stinger has played, so they don't clash).
+            if secondsRemaining == 3 { SoundManager.shared.play(.countdown) }
         }
         advance()
     }

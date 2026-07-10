@@ -108,7 +108,10 @@ struct TurnOrderView: View {
             spinDuration: 1.5 + Double(position) * 0.4,
             onFinished: {
                 finishedReelsCount += 1
-                if finishedReelsCount == battle.players.count { isSpinning = false }
+                if finishedReelsCount == battle.players.count {
+                    isSpinning = false
+                    SoundManager.shared.stopSpinning()
+                }
             }
         )
         .frame(width: colWidth, height: size.height * 0.5)
@@ -184,6 +187,7 @@ struct TurnOrderView: View {
         finishedReelsCount = 0
         isSpinning = true
         hasSpun = true
+        SoundManager.shared.startSpinning()
         withAnimation { battle.randomizeOrder() }
     }
 }
