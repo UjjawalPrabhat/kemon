@@ -19,7 +19,30 @@ struct ContentView: View {
 
     var body: some View {
         content
-            .onAppear { SampleData.seedIfNeeded(modelContext) }
+            .onAppear {
+                SampleData.seedIfNeeded(modelContext)
+                SoundManager.shared.startBGM()
+            }
+            .onChange(of: battle.screen) { _, screen in
+                updateAudio(for: screen)
+            }
+    }
+
+    /// Drives the non-karaoke soundtrack off the wizard's current screen: a BGM
+    /// bed for the menu/lobby screens, the finale leaderboard loop on the winners
+    /// screen, and full silence during a performance (see also PerformanceView,
+    /// which stops everything the instant the engine starts).
+    private func updateAudio(for screen: BattleController.Screen) {
+        switch screen {
+        case .performing:
+            SoundManager.shared.stopAll()
+        case .winners:
+            SoundManager.shared.stopBGM()
+            SoundManager.shared.startLoop(.finalLeaderboard)
+        case .home, .setup, .avatars, .order, .roundIntro, .songPick, .result:
+            SoundManager.shared.stopLoop()
+            SoundManager.shared.startBGM()
+        }
     }
 
     @ViewBuilder

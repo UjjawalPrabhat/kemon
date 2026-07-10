@@ -89,7 +89,10 @@ struct MelodashPrimaryButton: View {
     @State private var isHovered = false
 
     var body: some View {
-        Button(action: action) {
+        Button {
+            SoundManager.shared.play(.buzz)
+            action()
+        } label: {
             HStack(spacing: 10) {
                 if let systemImage { Image(systemName: systemImage) }
                 Text(title)

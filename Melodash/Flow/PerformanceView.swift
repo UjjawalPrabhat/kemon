@@ -51,7 +51,12 @@ struct PerformanceView: View {
         .animation(.easeInOut(duration: 0.6), value: isLoading)
         // Drives the per-turn lifecycle: starts on appear, and the awaited
         // `start` ends the loading state. The task is cancelled on disappear.
-        .task { await engine.start(song: song) }
+        .task {
+            // Karaoke starts here — silence all menu/SFX audio so nothing
+            // competes with the backing track or the mic-based scoring.
+            SoundManager.shared.stopAll()
+            await engine.start(song: song)
+        }
         .onDisappear { engine.stop() }
         // A natural finish flags `didFinish`; `stop()` (cancel/teardown) does not,
         // so onFinish scores completed turns only — no double-fire latch needed.
